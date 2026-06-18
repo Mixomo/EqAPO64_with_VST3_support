@@ -52,6 +52,7 @@
 #include "filters/PreampFilterFactory.h"
 #include "filters/OutputGuardFilterFactory.h"
 #include "filters/PanFilterFactory.h"
+#include "filters/CrossfeedFilterFactory.h"
 #include "filters/ChorusFilterFactory.h"
 #include "filters/ReverbFilterFactory.h"
 #include "filters/ToneGeneratorFilterFactory.h"
@@ -146,6 +147,7 @@ FilterEngine::FilterEngine()
 	factories.push_back(new PreampFilterFactory());
 	factories.push_back(new OutputGuardFilterFactory());
 	factories.push_back(new PanFilterFactory());
+	factories.push_back(new CrossfeedFilterFactory());
 	factories.push_back(new ChorusFilterFactory());
 	factories.push_back(new ReverbFilterFactory());
 	factories.push_back(new ToneGeneratorFilterFactory());

@@ -19,7 +19,9 @@
 
 #define _USE_MATH_DEFINES
 #include <cmath>
+#include <QPushButton>
 #include <QStandardItemModel>
+#include <QVariant>
 
 #include "Editor/helpers/GUIHelper.h"
 #include "BiQuadFilterGUI.h"
@@ -75,6 +77,40 @@ BiQuadFilterGUI::BiQuadFilterGUI(BiQuadFilter* filter)
 		ui->qSpinBox->setValue(filter->getBandwidthOrQOrS());
 
 	ui->gainSpinBox->setValue(filter->getDbGain());
+
+	defaultType = type;
+	defaultFreqMode = ui->freqComboBox->currentData().toChar();
+	defaultQMode = ui->qComboBox->currentData().toChar();
+	defaultFreq = ui->freqSpinBox->value();
+	defaultQ = ui->qSpinBox->value();
+	defaultGain = ui->gainSpinBox->value();
+
+	ui->freqSpinBox->setProperty("defaultValue", defaultFreq);
+	ui->qSpinBox->setProperty("defaultValue", defaultQ);
+	ui->gainSpinBox->setProperty("defaultValue", defaultGain);
+	ui->freqDial->setProperty("resetTarget", QVariant::fromValue(static_cast<QObject*>(ui->freqSpinBox)));
+	ui->freqDial->setProperty("defaultTargetValue", defaultFreq);
+	ui->qDial->setProperty("resetTarget", QVariant::fromValue(static_cast<QObject*>(ui->qSpinBox)));
+	ui->qDial->setProperty("defaultTargetValue", defaultQ);
+	ui->gainDial->setProperty("resetTarget", QVariant::fromValue(static_cast<QObject*>(ui->gainSpinBox)));
+	ui->gainDial->setProperty("defaultTargetValue", defaultGain);
+
+	QPushButton* resetButton = new QPushButton(tr("Reset"), this);
+	ui->gridLayout->addWidget(resetButton, 0, 10, 2, 1);
+	connect(resetButton, &QPushButton::clicked, this, [this]() {
+		const int typeIndex = ui->typeComboBox->findData(defaultType);
+		if (typeIndex != -1)
+			ui->typeComboBox->setCurrentIndex(typeIndex);
+		const int freqIndex = ui->freqComboBox->findData(defaultFreqMode);
+		if (freqIndex != -1)
+			ui->freqComboBox->setCurrentIndex(freqIndex);
+		const int qIndex = ui->qComboBox->findData(defaultQMode);
+		if (qIndex != -1)
+			ui->qComboBox->setCurrentIndex(qIndex);
+		ui->freqSpinBox->setValue(defaultFreq);
+		ui->gainSpinBox->setValue(defaultGain);
+		ui->qSpinBox->setValue(defaultQ);
+	});
 }
 
 BiQuadFilterGUI::~BiQuadFilterGUI()

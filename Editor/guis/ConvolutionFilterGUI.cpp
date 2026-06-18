@@ -19,6 +19,7 @@
 
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QPushButton>
 #define ENABLE_SNDFILE_WINDOWS_PROTOTYPES 1
 #include <sndfile.h>
 #include <algorithm>
@@ -198,6 +199,13 @@ ConvolutionFilterGUI::ConvolutionFilterGUI(const QString& configPath, unsigned d
 
 	connect(ui->matchSampleRatePushButton, &QPushButton::clicked, this, [this]() { matchDeviceSampleRate(); });
 	connect(ui->pathLineEdit, &QLineEdit::textChanged, this, [this]() { updateFileInfo(); });
+	QPushButton* resetButton = new QPushButton(tr("Reset"), this);
+	ui->gridLayout->addWidget(resetButton, 0, 4);
+	connect(resetButton, &QPushButton::clicked, this, [this]() {
+		ui->pathLineEdit->clear();
+		updateFileInfo();
+		emit updateModel();
+	});
 
 	updateFileInfo();
 }

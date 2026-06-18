@@ -20,6 +20,9 @@
 #include "Editor/helpers/GUIHelper.h"
 #include "DelayFilterGUI.h"
 #include "ui_DelayFilterGUI.h"
+#include <QLayoutItem>
+#include <QPushButton>
+#include <QVariant>
 
 static const double dialSteps = 1000;
 static const double dialMin = 1.0;
@@ -33,6 +36,21 @@ DelayFilterGUI::DelayFilterGUI(double delay, bool isMs)
 	ui->delayDial->setFixedSize(GUIHelper::scale(QSize(100, 66)));
 	ui->unitComboBox->setCurrentIndex(isMs ? 0 : 1);
 	ui->delaySpinBox->setValue(delay);
+	ui->delaySpinBox->setProperty("defaultValue", 0.0);
+	ui->delayDial->setProperty("resetTarget", QVariant::fromValue(static_cast<QObject*>(ui->delaySpinBox)));
+	ui->delayDial->setProperty("defaultTargetValue", 0.0);
+
+	QPushButton* resetButton = new QPushButton(tr("Reset"), this);
+	if (QLayoutItem* spacer = ui->gridLayout->itemAtPosition(0, 3))
+	{
+		ui->gridLayout->removeItem(spacer);
+		delete spacer;
+	}
+	ui->gridLayout->addWidget(resetButton, 0, 3, 2, 1);
+	connect(resetButton, &QPushButton::clicked, this, [this]() {
+		ui->unitComboBox->setCurrentIndex(0);
+		ui->delaySpinBox->setValue(0.0);
+	});
 }
 
 DelayFilterGUI::~DelayFilterGUI()
@@ -66,7 +84,7 @@ void DelayFilterGUI::on_delayDial_valueChanged(int value)
 void DelayFilterGUI::on_delaySpinBox_valueChanged(double value)
 {
 	bool previousValue = ui->delayDial->blockSignals(true);
-	ui->delayDial->setValue(round(dialSteps * log(value / dialMin) / log(dialMax / dialMin)));
+	ui->delayDial->setValue(value <= 0.0 ? 0 : round(dialSteps * log(value / dialMin) / log(dialMax / dialMin)));
 	ui->delayDial->blockSignals(previousValue);
 
 	emit updateModel();

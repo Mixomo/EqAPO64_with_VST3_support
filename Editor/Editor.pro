@@ -58,6 +58,8 @@ SOURCES += main.cpp\
 	../filters/CopyFilterFactory.cpp \
 	../filters/PanFilter.cpp \
 	../filters/PanFilterFactory.cpp \
+	../filters/CrossfeedFilter.cpp \
+	../filters/CrossfeedFilterFactory.cpp \
 	../filters/ChorusFilter.cpp \
 	../filters/ChorusFilterFactory.cpp \
 	../filters/ReverbFilter.cpp \
@@ -192,6 +194,8 @@ HEADERS  += \
 	../filters/AudioToolsHelper.h \
 	../filters/PanFilter.h \
 	../filters/PanFilterFactory.h \
+	../filters/CrossfeedFilter.h \
+	../filters/CrossfeedFilterFactory.h \
 	../filters/ChorusFilter.h \
 	../filters/ChorusFilterFactory.h \
 	../filters/ReverbFilter.h \

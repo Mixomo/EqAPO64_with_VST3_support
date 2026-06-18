@@ -23,6 +23,7 @@
 #include "CopyFilterGUIForm.h"
 #include "CopyFilterGUI.h"
 #include "ui_CopyFilterGUI.h"
+#include <QPushButton>
 
 static const double DEFAULT_HEIGHT = 88;
 
@@ -38,6 +39,16 @@ CopyFilterGUI::CopyFilterGUI(CopyFilter* filter, FilterTable* filterTable)
 	ui->graphicsView->setBackgroundRole(QPalette::Window);
 
 	ui->form->load(filter->getAssignments());
+
+	QPushButton* resetButton = new QPushButton(tr("Reset"), this);
+	ui->gridLayout->addWidget(resetButton, 0, 1);
+	connect(resetButton, &QPushButton::clicked, this, [this]() {
+		std::vector<Assignment> emptyAssignments;
+		scene->load(inputChannelNames, emptyAssignments);
+		ui->form->load(emptyAssignments);
+		emit updateModel();
+		emit updateChannels();
+	});
 
 	ResizeCorner* cornerWidget = new ResizeCorner(filterTable,
 			QSize(0, GUIHelper::scale(85)), QSize(0, INT_MAX),

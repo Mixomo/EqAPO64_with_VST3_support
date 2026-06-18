@@ -50,6 +50,43 @@ PluginName.vst3/Contents/x86_64-win/PluginName.vst3
 
 If a plug-in does not show its editor, does not animate, process the audio with artifacts or crashes when opened or removed, test it first in a standard VST3 host or DAW. Some plug-ins require host features that Equalizer APO does not provide.
 
+## Native Tools And Editor Update - June 18, 2026 (Exp Branch)
+
+The June 18, 2026 update focuses on keeping the native audio tools practical
+and predictable inside the Configuration Editor while preserving the normal APO
+signal path.
+
+### Editor Workflow
+
+- Adds reset actions to native filter rows that were missing a module-level
+  reset control.
+- Adds double-click reset behavior for slider and numeric controls where
+  supported by the editor widgets.
+- Keeps reset behavior local to the selected filter type, so parametric filters
+  return to the defaults that match their current filter shape instead of a
+  generic global default.
+- Keeps clone, add, remove and edit controls visible in denser rows by
+  improving row spacing and control placement.
+
+### Native Crossfeed
+
+- Adds a native `Crossfeed:` filter intended for headphone listening.
+- Provides `Natural` and `BS2B` processing modes.
+- Adds anatomy-based controls for head circumference, width and length, with
+  average female and average male presets.
+- Exposes the main crossfeed parameters through editor sliders so the filter
+  can be tuned without hand-editing every token.
+
+### VU Meter
+
+- Improves the floating `VUMeter:` panel for multi-channel layouts.
+- Keeps the numeric measurement area separate from the scrolling channel meter
+  area, making surround devices easier to inspect.
+- Adds LUFS/RMS standard selectors in the filter row, defaulting to `AES17`
+  for RMS and `ITU-R BS.1770-5` for LUFS.
+- Keeps the meter passive: it reports the signal at the position where the
+  `VUMeter:` filter is inserted and does not alter audio.
+  
 ## Stability And Workflow Update - June 5, 2026 (Exp Branch)
 
 The June 5, 2026 update stabilizes the experimental out-of-process VST path and

@@ -18,6 +18,9 @@
 */
 
 #include <cmath>
+#include <QLayoutItem>
+#include <QPushButton>
+#include <QVariant>
 
 #include "Editor/helpers/GUIHelper.h"
 #include "PreampFilterGUI.h"
@@ -32,6 +35,20 @@ PreampFilterGUI::PreampFilterGUI(double dbGain)
 
 	ui->dial->setFixedSize(GUIHelper::scale(QSize(100, 66)));
 	ui->doubleSpinBox->setValue(dbGain);
+	ui->doubleSpinBox->setProperty("defaultValue", 0.0);
+	ui->dial->setProperty("resetTarget", QVariant::fromValue(static_cast<QObject*>(ui->doubleSpinBox)));
+	ui->dial->setProperty("defaultTargetValue", 0.0);
+
+	QPushButton* resetButton = new QPushButton(tr("Reset"), this);
+	if (QLayoutItem* spacer = ui->gridLayout->itemAtPosition(0, 5))
+	{
+		ui->gridLayout->removeItem(spacer);
+		delete spacer;
+	}
+	ui->gridLayout->addWidget(resetButton, 0, 5, 2, 1);
+	connect(resetButton, &QPushButton::clicked, this, [this]() {
+		ui->doubleSpinBox->setValue(0.0);
+	});
 }
 
 PreampFilterGUI::~PreampFilterGUI()

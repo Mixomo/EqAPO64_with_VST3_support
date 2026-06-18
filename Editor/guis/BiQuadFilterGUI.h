@@ -51,5 +51,11 @@ private:
 
 	Ui::BiQuadFilterGUI* ui;
 	BiQuad::Type previousType = BiQuad::PEAKING;
+	BiQuad::Type defaultType = BiQuad::PEAKING;
+	QChar defaultFreqMode = 'E';
+	QChar defaultQMode = 'Q';
+	double defaultFreq = 100.0;
+	double defaultQ = 10.0;
+	double defaultGain = 0.0;
 	bool qIsBwOrS = false;
 };

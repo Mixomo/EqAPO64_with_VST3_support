@@ -19,6 +19,7 @@
 
 #include "CopyFilterGUIRow.h"
 #include "ui_CopyFilterGUIRow.h"
+#include <QVariant>
 
 using namespace std;
 
@@ -46,6 +47,7 @@ CopyFilterGUIRow::CopyFilterGUIRow(Assignment::Summand summand, std::vector<wstr
 	ui->modeComboBox->setCurrentIndex(ui->modeComboBox->findData(mode));
 
 	ui->factorSpinBox->setValue(summand.factor);
+	ui->factorSpinBox->setProperty("defaultValue", 1.0);
 
 	for (wstring channelName : channelNames)
 		ui->channelComboBox->addItem(QString::fromStdWString(channelName));

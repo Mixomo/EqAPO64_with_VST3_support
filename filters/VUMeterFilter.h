@@ -10,7 +10,7 @@
 class VUMeterFilter : public IFilter
 {
 public:
-	VUMeterFilter(std::wstring meterId, std::wstring channelSelector);
+	VUMeterFilter(std::wstring meterId, std::wstring channelSelector, std::wstring rmsStandard, std::wstring lufsStandard);
 	~VUMeterFilter() override;
 	bool getAllChannels() override { return true; }
 	std::vector<std::wstring> initialize(float sampleRate, unsigned maxFrameCount, std::vector<std::wstring> channelNames) override;
@@ -23,6 +23,9 @@ private:
 
 	std::wstring meterId;
 	std::wstring channelSelector;
+	std::wstring rmsStandard;
+	std::wstring lufsStandard;
+	double rmsScale = 1.0;
 	std::vector<unsigned> channels;
 	float sampleRate = 48000.0f;
 	unsigned channelCount = 0;
@@ -32,4 +35,8 @@ private:
 	double shortMean = 0.0;
 	double integratedMean = 0.0;
 	double integratedWeight = 0.0;
+	double channelMomentaryMean[VUMETER_MAX_CHANNELS] = {};
+	double channelShortMean[VUMETER_MAX_CHANNELS] = {};
+	double channelIntegratedMean[VUMETER_MAX_CHANNELS] = {};
+	double channelIntegratedWeight[VUMETER_MAX_CHANNELS] = {};
 };

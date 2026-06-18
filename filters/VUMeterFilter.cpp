@@ -4,14 +4,18 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <sddl.h>
+#include "helpers/StringHelper.h"
 #include "helpers/LogHelper.h"
 #include "VUMeterFilter.h"
 #include "AudioToolsHelper.h"
 
 using namespace std;
 
-VUMeterFilter::VUMeterFilter(wstring meterId, wstring channelSelector)
-	: meterId(meterId.empty() ? L"default" : meterId), channelSelector(channelSelector.empty() ? L"all" : channelSelector)
+VUMeterFilter::VUMeterFilter(wstring meterId, wstring channelSelector, wstring rmsStandard, wstring lufsStandard)
+	: meterId(meterId.empty() ? L"default" : meterId),
+	  channelSelector(channelSelector.empty() ? L"all" : channelSelector),
+	  rmsStandard(rmsStandard.empty() ? L"AES17" : rmsStandard),
+	  lufsStandard(lufsStandard.empty() ? L"ITU-R BS.1770-5" : lufsStandard)
 {
 }
 
@@ -26,6 +30,8 @@ vector<wstring> VUMeterFilter::initialize(float sampleRate, unsigned maxFrameCou
 	this->sampleRate = sampleRate > 0.0f ? sampleRate : 48000.0f;
 	channelCount = min<unsigned>(static_cast<unsigned>(channelNames.size()), VUMETER_MAX_CHANNELS);
 	channels = AudioTools::resolveChannels(channelSelector, channelNames);
+	const wstring rmsLower = StringHelper::toLowerCase(rmsStandard);
+	rmsScale = rmsLower.find(L"aes17") != wstring::npos ? sqrt(2.0) : 1.0;
 	openSharedData();
 	return channelNames;
 }
@@ -103,15 +109,29 @@ void VUMeterFilter::process(double** output, double** input, unsigned frameCount
 		}
 		integratedMean = 0.0;
 		integratedWeight = 0.0;
+		for (unsigned c = 0; c < VUMETER_MAX_CHANNELS; c++)
+		{
+			channelIntegratedMean[c] = 0.0;
+			channelIntegratedWeight[c] = 0.0;
+			shared->channelLufsMomentary[c] = -INFINITY;
+			shared->channelLufsShortTerm[c] = -INFINITY;
+			shared->channelLufsIntegrated[c] = -INFINITY;
+		}
 		shared->resetRequest = 0;
 	}
 
 	double blockMean = 0.0;
 	unsigned activeChannels = 0;
+	bool measured[VUMETER_MAX_CHANNELS] = {};
+	const double blockSeconds = frameCount / max(1.0f, sampleRate);
+	const double momentaryAlpha = exp(-blockSeconds / 0.4);
+	const double shortAlpha = exp(-blockSeconds / 3.0);
+	auto toLufs = [](double mean) { return mean > 1e-12 ? 10.0 * log10(mean) - 0.691 : -INFINITY; };
 	for (unsigned channel : channels)
 	{
 		if (channel >= channelCount)
 			continue;
+		measured[channel] = true;
 		activeChannels++;
 		double peak = 0.0;
 		double sumSquares = 0.0;
@@ -125,22 +145,41 @@ void VUMeterFilter::process(double** output, double** input, unsigned frameCount
 		const double mean = sumSquares / frameCount;
 		blockMean += mean;
 		shared->peak[channel] = peak;
-		shared->rms[channel] = sqrt(mean);
+		shared->rms[channel] = sqrt(mean) * rmsScale;
 		shared->peakHold[channel] = max(shared->peakHold[channel] * 0.9995, peak);
 		if (peak >= 1.0)
 			shared->clip[channel]++;
+		channelMomentaryMean[channel] = channelMomentaryMean[channel] * momentaryAlpha + mean * (1.0 - momentaryAlpha);
+		channelShortMean[channel] = channelShortMean[channel] * shortAlpha + mean * (1.0 - shortAlpha);
+		channelIntegratedMean[channel] = (channelIntegratedMean[channel] * channelIntegratedWeight[channel] + mean * blockSeconds) / max(1e-9, channelIntegratedWeight[channel] + blockSeconds);
+		channelIntegratedWeight[channel] += blockSeconds;
+		shared->channelLufsMomentary[channel] = toLufs(channelMomentaryMean[channel]);
+		shared->channelLufsShortTerm[channel] = toLufs(channelShortMean[channel]);
+		shared->channelLufsIntegrated[channel] = toLufs(channelIntegratedMean[channel]);
+	}
+	for (unsigned channel = 0; channel < VUMETER_MAX_CHANNELS; channel++)
+	{
+		if (channel >= channelCount || !measured[channel])
+		{
+			shared->peak[channel] = 0.0;
+			shared->rms[channel] = 0.0;
+			shared->peakHold[channel] = 0.0;
+			channelMomentaryMean[channel] = 0.0;
+			channelShortMean[channel] = 0.0;
+			channelIntegratedMean[channel] = 0.0;
+			channelIntegratedWeight[channel] = 0.0;
+			shared->channelLufsMomentary[channel] = -INFINITY;
+			shared->channelLufsShortTerm[channel] = -INFINITY;
+			shared->channelLufsIntegrated[channel] = -INFINITY;
+		}
 	}
 
 	if (activeChannels > 0)
 		blockMean /= activeChannels;
-	const double blockSeconds = frameCount / max(1.0f, sampleRate);
-	const double momentaryAlpha = exp(-blockSeconds / 0.4);
-	const double shortAlpha = exp(-blockSeconds / 3.0);
 	momentaryMean = momentaryMean * momentaryAlpha + blockMean * (1.0 - momentaryAlpha);
 	shortMean = shortMean * shortAlpha + blockMean * (1.0 - shortAlpha);
 	integratedMean = (integratedMean * integratedWeight + blockMean * blockSeconds) / max(1e-9, integratedWeight + blockSeconds);
 	integratedWeight += blockSeconds;
-	auto toLufs = [](double mean) { return mean > 1e-12 ? 10.0 * log10(mean) - 0.691 : -INFINITY; };
 	shared->lufsMomentary = toLufs(momentaryMean);
 	shared->lufsShortTerm = toLufs(shortMean);
 	shared->lufsIntegrated = toLufs(integratedMean);

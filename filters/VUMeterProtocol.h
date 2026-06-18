@@ -3,7 +3,7 @@
 #include <cstdint>
 
 static const std::uint32_t VUMETER_MAGIC = 0x4F505556u; // VUPO
-static const std::uint32_t VUMETER_VERSION = 1;
+static const std::uint32_t VUMETER_VERSION = 2;
 static const unsigned VUMETER_MAX_CHANNELS = 16;
 
 struct VUMeterSharedData
@@ -19,6 +19,9 @@ struct VUMeterSharedData
 	double lufsMomentary;
 	double lufsShortTerm;
 	double lufsIntegrated;
+	double channelLufsMomentary[VUMETER_MAX_CHANNELS];
+	double channelLufsShortTerm[VUMETER_MAX_CHANNELS];
+	double channelLufsIntegrated[VUMETER_MAX_CHANNELS];
 	std::uint32_t clip[VUMETER_MAX_CHANNELS];
 	std::uint32_t resetRequest;
 };

@@ -21,6 +21,9 @@
 #include "LoudnessCorrectionFilterGUIDialog.h"
 #include "LoudnessCorrectionFilterGUI.h"
 #include "ui_LoudnessCorrectionFilterGUI.h"
+#include <QLayoutItem>
+#include <QPushButton>
+#include <QVariant>
 
 LoudnessCorrectionFilterGUI::LoudnessCorrectionFilterGUI(double refLevel, double refOffset, double att)
 	: IFilterGUI(),
@@ -35,6 +38,29 @@ LoudnessCorrectionFilterGUI::LoudnessCorrectionFilterGUI(double refLevel, double
 	ui->refLevelSpinBox->setValue((int)refLevel);
 	ui->refOffsetSpinBox->setValue((int)refOffset);
 	ui->attSpinBox->setValue(att);
+	ui->refLevelSpinBox->setProperty("defaultValue", 0);
+	ui->refOffsetSpinBox->setProperty("defaultValue", 0);
+	ui->attSpinBox->setProperty("defaultValue", 1.0);
+	ui->refLevelDial->setProperty("resetTarget", QVariant::fromValue(static_cast<QObject*>(ui->refLevelSpinBox)));
+	ui->refLevelDial->setProperty("defaultTargetValue", 0);
+	ui->refOffsetDial->setProperty("resetTarget", QVariant::fromValue(static_cast<QObject*>(ui->refOffsetSpinBox)));
+	ui->refOffsetDial->setProperty("defaultTargetValue", 0);
+	ui->attDial->setProperty("resetTarget", QVariant::fromValue(static_cast<QObject*>(ui->attSpinBox)));
+	ui->attDial->setProperty("defaultTargetValue", 1.0);
+
+	QPushButton* resetButton = new QPushButton(tr("Reset"), this);
+	if (QLayoutItem* spacer = ui->gridLayout->itemAtPosition(0, 12))
+	{
+		ui->gridLayout->removeItem(spacer);
+		delete spacer;
+	}
+	ui->gridLayout->addWidget(resetButton, 0, 12, 2, 1);
+	connect(resetButton, &QPushButton::clicked, this, [this]() {
+		state = true;
+		ui->refLevelSpinBox->setValue(0);
+		ui->refOffsetSpinBox->setValue(0);
+		ui->attSpinBox->setValue(1.0);
+	});
 
 	connect(&timer, SIGNAL(timeout()), this, SLOT(updateVolume()));
 	timer.start(10);

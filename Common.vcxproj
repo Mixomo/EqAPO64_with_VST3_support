@@ -342,6 +342,8 @@
     <ClInclude Include="filters\AudioToolsHelper.h" />
     <ClInclude Include="filters\PanFilter.h" />
     <ClInclude Include="filters\PanFilterFactory.h" />
+    <ClInclude Include="filters\CrossfeedFilter.h" />
+    <ClInclude Include="filters\CrossfeedFilterFactory.h" />
     <ClInclude Include="filters\ChorusFilter.h" />
     <ClInclude Include="filters\ChorusFilterFactory.h" />
     <ClInclude Include="filters\ReverbFilter.h" />
@@ -417,6 +419,8 @@
     <ClCompile Include="filters\OutputGuardFilterFactory.cpp" />
     <ClCompile Include="filters\PanFilter.cpp" />
     <ClCompile Include="filters\PanFilterFactory.cpp" />
+    <ClCompile Include="filters\CrossfeedFilter.cpp" />
+    <ClCompile Include="filters\CrossfeedFilterFactory.cpp" />
     <ClCompile Include="filters\ChorusFilter.cpp" />
     <ClCompile Include="filters\ChorusFilterFactory.cpp" />
     <ClCompile Include="filters\ReverbFilter.cpp" />

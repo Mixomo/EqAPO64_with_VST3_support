@@ -30,10 +30,14 @@
 #include <QToolBar>
 #include <QComboBox>
 #include <QAbstractSpinBox>
+#include <QAbstractSlider>
 #include <QDial>
+#include <QDoubleSpinBox>
 #include <QJsonDocument>
+#include <QMouseEvent>
 #include <QRegularExpression>
 #include <QSettings>
+#include <QSpinBox>
 #include <QUuid>
 
 #include "MainWindow.h"
@@ -84,6 +88,7 @@ FilterTable::FilterTable(MainWindow* mainWindow, QWidget* parent)
 	factories.append(new DelayFilterGUIFactory);
 	factories.append(new CopyFilterGUIFactory);
 	factories.append(new PanFilterGUIFactory);
+	factories.append(new CrossfeedFilterGUIFactory);
 	factories.append(new ChorusFilterGUIFactory);
 	factories.append(new ReverbFilterGUIFactory);
 	factories.append(new ToneGeneratorFilterGUIFactory);
@@ -990,6 +995,65 @@ void FilterTable::wheelEvent(QWheelEvent* event)
 bool FilterTable::eventFilter(QObject* obj, QEvent* event)
 {
 	QEvent::Type type = event->type();
+	if (type == QEvent::MouseButtonRelease)
+	{
+		QWidget* widget = qobject_cast<QWidget*>(obj);
+		if (widget != NULL && widget->property("_eqapoSuppressResetRelease").toBool())
+		{
+			widget->setProperty("_eqapoSuppressResetRelease", false);
+			static_cast<QMouseEvent*>(event)->accept();
+			return true;
+		}
+	}
+	if (type == QEvent::MouseButtonDblClick)
+	{
+		QWidget* widget = qobject_cast<QWidget*>(obj);
+		if (widget != NULL && isAncestorOf(widget))
+		{
+			auto consumeResetEvent = [widget, event]() {
+				widget->setProperty("_eqapoSuppressResetRelease", true);
+				static_cast<QMouseEvent*>(event)->accept();
+				return true;
+			};
+			const QVariant defaultValue = widget->property("defaultValue");
+			if (QDoubleSpinBox* spin = qobject_cast<QDoubleSpinBox*>(widget))
+			{
+				const double neutral = defaultValue.isValid() ? defaultValue.toDouble() : (spin->minimum() <= 0.0 && spin->maximum() >= 0.0 ? 0.0 : spin->minimum());
+				spin->setValue(neutral);
+				return consumeResetEvent();
+			}
+			if (QSpinBox* spin = qobject_cast<QSpinBox*>(widget))
+			{
+				const int neutral = defaultValue.isValid() ? defaultValue.toInt() : (spin->minimum() <= 0 && spin->maximum() >= 0 ? 0 : spin->minimum());
+				spin->setValue(neutral);
+				return consumeResetEvent();
+			}
+			if (QAbstractSlider* slider = qobject_cast<QAbstractSlider*>(widget))
+			{
+				if (qobject_cast<QScrollBar*>(widget) == NULL)
+				{
+					QObject* resetTarget = widget->property("resetTarget").value<QObject*>();
+					const QVariant defaultTargetValue = widget->property("defaultTargetValue");
+					if (resetTarget != NULL && defaultTargetValue.isValid())
+					{
+						if (QDoubleSpinBox* spin = qobject_cast<QDoubleSpinBox*>(resetTarget))
+						{
+							spin->setValue(defaultTargetValue.toDouble());
+							return consumeResetEvent();
+						}
+						if (QSpinBox* spin = qobject_cast<QSpinBox*>(resetTarget))
+						{
+							spin->setValue(defaultTargetValue.toInt());
+							return consumeResetEvent();
+						}
+					}
+					const int neutral = defaultValue.isValid() ? defaultValue.toInt() : (slider->minimum() <= 0 && slider->maximum() >= 0 ? 0 : slider->minimum());
+					slider->setValue(neutral);
+					return consumeResetEvent();
+				}
+			}
+		}
+	}
 	if (scrollingNow)
 	{
 		if (type == QEvent::Wheel)
