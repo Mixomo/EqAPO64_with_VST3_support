@@ -1,5 +1,15 @@
 # Equalizer APO 64 with VST3 support
 
+<div align="center">
+  <a href="https://sourceforge.net/projects/eqapo64-with-vst3-support/">
+    <img src="assets/sourceforge_badge.png" alt="Sourceforge Badge 1" width="100">
+  </a>
+  &nbsp;&nbsp;
+  <a href="https://sourceforge.net">
+    <img src="assets/sourceforge_badge2.png" alt="Sourceforge Badge 2" width="100">
+  </a>
+</div>
+
 This repository is a restructured Windows fork based on [TheFireKahuna/equalizerAPO64](https://github.com/TheFireKahuna/equalizerAPO64), with the goal of keeping the familiar Equalizer APO workflow while adding
 native VST3 plug-in support.
 
