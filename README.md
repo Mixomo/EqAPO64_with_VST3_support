@@ -322,15 +322,7 @@ For normal users, install from the latest GitHub Release:
 6. To use a plug-in, add a VST plug-in filter and select either a VST2 `.dll`
    or a VST3 `.vst3` bundle.
 
-### Option B - Install From The `Setup` Directory
-
-Also the generated installer is located here:
-
-```text
-Setup/EqualizerAPO-x64-1.4.2.exe
-```
-
-### Option C - Install From SourceForge
+### Option B - Install From SourceForge
 
 [![Download EqAPO64_with_VST3_support](https://a.fsdn.com/con/app/sf-download-button)](https://sourceforge.net/projects/eqapo64-with-vst3-support/files/latest/download)
 
