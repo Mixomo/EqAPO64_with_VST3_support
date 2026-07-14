@@ -26,7 +26,7 @@
 class OutProcVSTPluginFilter : public IFilter
 {
 public:
-	OutProcVSTPluginFilter(std::wstring libPath, std::wstring chunkData, std::unordered_map<std::wstring, float> paramMap, std::wstring hostId = L"", bool analysisMode = false);
+	OutProcVSTPluginFilter(std::wstring libPath, std::wstring chunkData, std::unordered_map<std::wstring, float> paramMap, std::wstring hostId = L"", bool analysisMode = false, int vst3ClassIndex = 0);
 	~OutProcVSTPluginFilter() override;
 
 	bool getInPlace() override { return true; }

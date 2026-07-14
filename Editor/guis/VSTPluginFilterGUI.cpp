@@ -20,13 +20,17 @@
 #include <QFileInfo>
 #include <QFileDialog>
 #include <QCoreApplication>
+#include <QDialog>
 #include <QDir>
 #include <QFile>
+#include <QGridLayout>
+#include <QLabel>
 #include <QMessageBox>
 #include <QProcess>
 #include <QSettings>
 #include <QStringList>
 #include <QTextStream>
+#include <QTimer>
 #include <QUuid>
 
 #define WIN32_LEAN_AND_MEAN
@@ -66,13 +70,27 @@ static void appendOutProcDebugLog(const QString& message)
 	}
 }
 
-VSTPluginFilterGUI::VSTPluginFilterGUI(std::shared_ptr<VSTPluginLibrary> library, const std::wstring& chunkData, const std::unordered_map<std::wstring, float>& paramMap, bool outProcMode, const QString& hostId)
-	: ui(new Ui::VSTPluginFilterGUI), library(library), chunkData(chunkData), paramMap(paramMap), outProcMode(outProcMode), hostId(hostId)
+VSTPluginFilterGUI::VSTPluginFilterGUI(std::shared_ptr<VSTPluginLibrary> library, const std::wstring& chunkData, const std::unordered_map<std::wstring, float>& paramMap, bool outProcMode, const QString& hostId, int vst3ClassIndex)
+	: ui(new Ui::VSTPluginFilterGUI), library(library), chunkData(chunkData), paramMap(paramMap), outProcMode(outProcMode), hostId(hostId), vst3ClassIndex(vst3ClassIndex)
 {
 	ui->setupUi(this);
 	if (outProcMode && this->hostId.isEmpty())
 		this->hostId = QUuid::createUuid().toString(QUuid::WithoutBraces);
 	ui->frame->setVisible(false);
+	if (QGridLayout* grid = qobject_cast<QGridLayout*>(layout()))
+	{
+		QLabel* note = new QLabel(tr("NOTE: The VST module is not universally compatible with all VSTs on the market.\n\n"
+			"If you experience:\n\n"
+			"- Audio popping\n"
+			"- Editor.exe crashes and closes\n"
+			"- Audio changes you've made in the VST GUI aren't applied\n"
+			"- The GUI doesn't open when you click the button\n"
+			"- Audio artifacts or delays when processing changes\n\n"
+			"Then the VST is partially or completely incompatible with APO's architecture and the technical limitations of the Windows audio engine.\n\n"
+			"Try different VST plug-ins with both the traditional loader and the out-of-process loader; some plug-ins work better in one mode than the other."), this);
+		note->setWordWrap(true);
+		grid->addWidget(note, 4, 0, 1, 5);
+	}
 	updatePermissionWarning();
 
 	QString absolutePath = QString::fromStdWString(library->getLibPath());
@@ -81,6 +99,7 @@ VSTPluginFilterGUI::VSTPluginFilterGUI(std::shared_ptr<VSTPluginLibrary> library
 	if (relativePath.startsWith(QDir::toNativeSeparators("../../")))
 		relativePath = absolutePath;
 	ui->pathLineEdit->setText(relativePath);
+	refreshVST3ClassComboBox();
 
 	connect(&idleTimer, &QTimer::timeout, this, &VSTPluginFilterGUI::on_idle);
 	idleTimer.setTimerType(Qt::PreciseTimer);
@@ -108,6 +127,8 @@ void VSTPluginFilterGUI::store(QString& command, QString& parameters)
 	if (relativePath.contains(" "))
 		relativePath = "\"" + relativePath + "\"";
 	parameters = "Library " + relativePath;
+	if (library->isVST3() && vst3ClassIndex != 0)
+		parameters += " ClassIndex " + QString::number(vst3ClassIndex);
 	if (outProcMode)
 		parameters += " HostId " + hostId;
 	if (chunkData != L"")
@@ -205,6 +226,28 @@ void VSTPluginFilterGUI::on_reloadButton_clicked()
 	emit updateModel();
 }
 
+void VSTPluginFilterGUI::on_vst3ClassComboBox_currentIndexChanged(int index)
+{
+	if (index < 0 || index == vst3ClassIndex)
+		return;
+
+	vst3ClassIndex = index;
+	chunkData = L"";
+	paramMap.clear();
+	if (outProcMode)
+	{
+		terminateOutProcPanel();
+		hostId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+	}
+	else
+	{
+		releasePluginInstance();
+		initPlugin();
+	}
+	emit updateModel();
+	updatePermissionWarning();
+}
+
 void VSTPluginFilterGUI::openOutProcPanel()
 {
 	if (outProcGuiRunning)
@@ -248,6 +291,7 @@ void VSTPluginFilterGUI::openOutProcPanel()
 	outProcGuiConfigPath = QDir::temp().absoluteFilePath("EqApoVSTGui-" + QUuid::createUuid().toString(QUuid::WithoutBraces) + ".opvs");
 	OutProcVSTConfig config;
 	config.libraryPath = library->getLibPath();
+	config.vst3ClassIndex = vst3ClassIndex;
 	config.chunkData = chunkData;
 	config.paramMap = paramMap;
 	if (!OutProcWriteVSTConfig(outProcGuiConfigPath.toStdWString(), config))
@@ -504,7 +548,7 @@ void VSTPluginFilterGUI::initPlugin()
 		}
 		else
 		{
-			effect = new VSTPluginInstance(library, 1);
+			effect = new VSTPluginInstance(library, 1, vst3ClassIndex);
 			if (effect->initialize())
 			{
 				effect->setLanguage(QLocale().language() == QLocale::German ? 2 : 1);
@@ -572,6 +616,8 @@ void VSTPluginFilterGUI::on_pathLineEdit_editingFinished()
 		if (path.length() > 0)
 			path = QDir::toNativeSeparators(QFileInfo(pluginsDir, ui->pathLineEdit->text()).absoluteFilePath());
 		library = VSTPluginLibrary::getInstance(path.toStdWString());
+		vst3ClassIndex = 0;
+		refreshVST3ClassComboBox();
 		if (!outProcMode)
 			initPlugin();
 
@@ -584,6 +630,25 @@ void VSTPluginFilterGUI::on_pathLineEdit_editingFinished()
 		updateModel();
 		updatePermissionWarning();
 	}
+}
+
+void VSTPluginFilterGUI::refreshVST3ClassComboBox()
+{
+	ui->vst3ClassComboBox->blockSignals(true);
+	ui->vst3ClassComboBox->clear();
+	ui->vst3ClassComboBox->setVisible(false);
+
+	if (library != NULL && library->isVST3() && library->initialize() >= 0 && library->getVST3ClassCount() > 1)
+	{
+		for (int i = 0; i < library->getVST3ClassCount(); ++i)
+			ui->vst3ClassComboBox->addItem(QString::fromUtf8(library->getVST3ClassInfo(i).name));
+		if (vst3ClassIndex < 0 || vst3ClassIndex >= library->getVST3ClassCount())
+			vst3ClassIndex = 0;
+		ui->vst3ClassComboBox->setCurrentIndex(vst3ClassIndex);
+		ui->vst3ClassComboBox->setVisible(true);
+	}
+
+	ui->vst3ClassComboBox->blockSignals(false);
 }
 
 void VSTPluginFilterGUI::on_selectButton_clicked()

@@ -8,13 +8,14 @@
 #include <windows.h>
 
 constexpr std::uint32_t OUTPROC_VST_CONFIG_MAGIC = 0x4F505653; // OPVS
-constexpr std::uint32_t OUTPROC_VST_CONFIG_VERSION = 1;
+constexpr std::uint32_t OUTPROC_VST_CONFIG_VERSION = 2;
 constexpr std::uint32_t OUTPROC_VST_CONFIG_MAX_STRING_LENGTH = 64 * 1024 * 1024;
 constexpr std::uint32_t OUTPROC_VST_CONFIG_MAX_PARAM_COUNT = 65536;
 
 struct OutProcVSTConfig
 {
 	std::wstring libraryPath;
+	int vst3ClassIndex = 0;
 	std::wstring chunkData;
 	std::unordered_map<std::wstring, float> paramMap;
 };
@@ -60,6 +61,7 @@ inline bool OutProcWriteVSTConfigPayload(const std::wstring& path, const OutProc
 	stream.write(reinterpret_cast<const char*>(&version), sizeof(version));
 	if (!OutProcWriteString(stream, config.libraryPath))
 		return false;
+	stream.write(reinterpret_cast<const char*>(&config.vst3ClassIndex), sizeof(config.vst3ClassIndex));
 	if (!OutProcWriteString(stream, config.chunkData))
 		return false;
 	stream.write(reinterpret_cast<const char*>(&paramCount), sizeof(paramCount));
@@ -102,11 +104,18 @@ inline bool OutProcReadVSTConfig(const std::wstring& path, OutProcVSTConfig& con
 	std::uint32_t version = 0;
 	stream.read(reinterpret_cast<char*>(&magic), sizeof(magic));
 	stream.read(reinterpret_cast<char*>(&version), sizeof(version));
-	if (!stream.good() || magic != OUTPROC_VST_CONFIG_MAGIC || version != OUTPROC_VST_CONFIG_VERSION)
+	if (!stream.good() || magic != OUTPROC_VST_CONFIG_MAGIC || (version != 1 && version != OUTPROC_VST_CONFIG_VERSION))
 		return false;
 
 	if (!OutProcReadString(stream, config.libraryPath))
 		return false;
+	config.vst3ClassIndex = 0;
+	if (version >= 2)
+	{
+		stream.read(reinterpret_cast<char*>(&config.vst3ClassIndex), sizeof(config.vst3ClassIndex));
+		if (!stream.good())
+			return false;
+	}
 	if (!OutProcReadString(stream, config.chunkData))
 		return false;
 

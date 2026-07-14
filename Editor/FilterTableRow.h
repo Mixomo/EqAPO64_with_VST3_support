@@ -39,6 +39,7 @@ public:
 	QRect getHeaderRect();
 	void editText();
 	QSize sizeHint() const override;
+	QSize minimumSizeHint() const override;
 
 protected:
 	void mouseDoubleClickEvent(QMouseEvent*) override;

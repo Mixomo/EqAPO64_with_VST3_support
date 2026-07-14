@@ -51,13 +51,18 @@ if ($LASTEXITCODE -ne 0) {
 
 $muparserBuild = Join-Path $thirdParty "build\muparserx-$Triplet"
 $muparserSource = Join-Path $thirdParty "muparserx"
-cmake -S $muparserSource -B $muparserBuild -A x64 -DUSE_WIDE_STRING=ON -DCMAKE_BUILD_TYPE=$Configuration
-if ($LASTEXITCODE -ne 0) {
-    throw "muparserx configure failed with exit code $LASTEXITCODE"
-}
-cmake --build $muparserBuild --config $Configuration
-if ($LASTEXITCODE -ne 0) {
-    throw "muparserx build failed with exit code $LASTEXITCODE"
+$muparserLib = Join-Path $muparserBuild "$Configuration\muparserx.lib"
+if (Test-Path -LiteralPath $muparserLib) {
+    Write-Host "muparserx already built: $muparserLib"
+} else {
+    cmake -S $muparserSource -B $muparserBuild -A x64 -DUSE_WIDE_STRING=ON -DCMAKE_BUILD_TYPE=$Configuration
+    if ($LASTEXITCODE -ne 0) {
+        throw "muparserx configure failed with exit code $LASTEXITCODE"
+    }
+    cmake --build $muparserBuild --config $Configuration
+    if ($LASTEXITCODE -ne 0) {
+        throw "muparserx build failed with exit code $LASTEXITCODE"
+    }
 }
 
 if ($WithQt) {

@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <QToolButton>
+#include <QVector>
 #include "Editor/IFilterGUI.h"
 
 namespace Ui {
@@ -44,11 +46,19 @@ private:
 	QString absoluteImpulsePath() const;
 	unsigned refreshDeviceSampleRate() const;
 	unsigned liveDeviceSampleRate() const;
-	void matchDeviceSampleRate();
+	bool matchDeviceSampleRate(bool interactive = true);
+	void populateBundledImpulseResponses();
+	void selectBundledImpulseResponse(const QString& absolutePath);
+	void selectBundledImpulseAt(int index);
+	int currentBundledImpulseIndex();
 	void updateFileInfo();
 
 	Ui::ConvolutionFilterGUI* ui;
 	QString configPath;
 	QString deviceGuid;
 	unsigned deviceSampleRate;
+	QToolButton* bundledIrButton = nullptr;
+	QVector<QString> bundledImpulsePaths;
+	int currentBundledImpulseListIndex = -1;
+	bool autoMatchingSampleRate = false;
 };

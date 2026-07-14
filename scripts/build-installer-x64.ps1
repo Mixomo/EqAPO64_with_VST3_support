@@ -9,8 +9,17 @@ $root = Split-Path -Parent $PSScriptRoot
 
 & (Join-Path $root "scripts\bootstrap-third-party.ps1") -Configuration $Configuration -WithQt -WithNsis
 & (Join-Path $root "build-local-x64.ps1") -Configuration $Configuration -VisualStudioEdition $VisualStudioEdition
+if ($LASTEXITCODE -ne 0) {
+	throw "native build failed with exit code $LASTEXITCODE"
+}
 & (Join-Path $root "scripts\build-qt-apps-x64.ps1") -Configuration $Configuration -VisualStudioEdition $VisualStudioEdition
+if ($LASTEXITCODE -ne 0) {
+	throw "Qt app build failed with exit code $LASTEXITCODE"
+}
 & (Join-Path $root "scripts\stage-installer-x64.ps1") -Configuration $Configuration
+if ($LASTEXITCODE -ne 0) {
+	throw "staging failed with exit code $LASTEXITCODE"
+}
 
 if ($Makensis -eq "") {
 	$localMakensis = Join-Path $root "third_party\nsis-3.11\makensis.exe"

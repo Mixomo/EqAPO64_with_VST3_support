@@ -24,7 +24,7 @@ static void outProcVSTModuleAnchor()
 {
 }
 
-OutProcVSTPluginFilter::OutProcVSTPluginFilter(wstring libPath, wstring chunkData, unordered_map<wstring, float> paramMap, wstring hostId, bool analysisMode)
+OutProcVSTPluginFilter::OutProcVSTPluginFilter(wstring libPath, wstring chunkData, unordered_map<wstring, float> paramMap, wstring hostId, bool analysisMode, int vst3ClassIndex)
 	: sampleRate(0.0f),
 	  hostId(hostId),
 	  channelCount(0),
@@ -49,6 +49,7 @@ OutProcVSTPluginFilter::OutProcVSTPluginFilter(wstring libPath, wstring chunkDat
 	  consecutiveTimeouts(0)
 {
 	vstConfig.libraryPath = libPath;
+	vstConfig.vst3ClassIndex = vst3ClassIndex;
 	vstConfig.chunkData = chunkData;
 	vstConfig.paramMap = paramMap;
 }

@@ -26,12 +26,19 @@ NOTE: This build was compiled for Windows 10/11 64 bits with AVX2 support only (
 - Existing VST2 support retained for older plug-ins.
 - Experimental out-of-process VST hosting for isolating plug-ins from the
   Configuration Editor and the APO audio engine.
-- Native pan, chorus, reverb, tone-generator and professional VU-meter filters.
+- Native pan, chorus, reverb, crossfeed, tone-generator and professional VU-meter modules.
 - GraphicEQ FIR export and explicit IR/FIR sample-rate validation for
   convolution.
+- Full parametric EQ module with unlimeted filters, import and export options.
+- Full Headphone Calibration module with uses a bundled ASH catalog generated from the
+  [ASH-Toolset](https://github.com/ShanonPearce/ASH-Toolset) project by Shanon
+  Pearce.
+- Bundled various Free Impulse Responses inside the Convolution module. (Credits to Greg Hopkins
+  (Hopkins Media Services) and [Aleksey Vaneev](https://github.com/avaneev) from ([Voxengo](https://www.voxengo.com/)).)
+
 - Configuration Editor workflow preserved.
 - Reproducible installer build using local dependencies under `third_party/`.
-- NSIS-based installer packaging for end users.
+- NSIS-based safe installer packaging for end users.
 
 ## Current VST3 Status
 
@@ -59,6 +66,67 @@ PluginName.vst3/Contents/x86_64-win/PluginName.vst3
 ```
 
 If a plug-in does not show its editor, does not animate, process the audio with artifacts or crashes when opened or removed, test it first in a standard VST3 host or DAW. Some plug-ins require host features that Equalizer APO does not provide.
+
+## Headphone Calibration, Parametric EQ, VST And Installer Update - July 12, 2026 (Exp Branch)
+
+This update focuses on making the Configuration Editor easier to use for
+headphone correction, editable EQ work, plug-in compatibility and installer
+diagnostics.
+
+### Headphone Calibration
+
+- Adds a new headphone-calibration module for creating correction filters from
+  headphone correction data.
+- Uses a bundled ASH catalog generated from the
+  [ASH-Toolset](https://github.com/ShanonPearce/ASH-Toolset) project by Shanon
+  Pearce.
+- Organizes ASH entries by source, brand and model.
+- Lets users send the selected correction directly to GraphicEQ, Convolution or
+  the new Parametric Equalizer module.
+- Adds export options for GraphicEQ CSV, FIR WAV and ParametricEQ text output.
+
+### Parametric Equalizer
+
+- Adds a new editable `ParametricEQ:` module with multiple filter bands in one
+  row.
+- Supports peak, low-shelf and high-shelf bands.
+- Provides sliders and numeric fields for frequency, gain and Q.
+- Allows adding, removing, sorting, importing, exporting and resetting bands.
+- Double-clicking a band control returns it to useful neutral defaults:
+  `1000 Hz`, `0 dB` and `Q 1.00`.
+
+### Convolution And Included IRs
+
+- Expands the Convolution filter workflow for bundled IR/FIR collections.
+- Adds a clearer IR/FIR selection flow for packaged impulse responses.
+- Keeps automatic sample-rate matching and normalization focused on making
+  loaded FIR files safer to use.
+- Bundled IRs are free to use, but their copyright belongs to Greg Hopkins
+  (Hopkins Media Services) and [Aleksey Vaneev](https://github.com/avaneev) from ([Voxengo](https://www.voxengo.com/)).
+
+### VST Plug-in Handling
+
+- Adds VST3 class selection for plug-in bundles that expose more than one
+  effect in the same `.vst3` package.
+- Improves VST3 parameter transfer so GUI edits are reflected by the audio
+  engine and analyzer more consistently, including the out-of-process loader.
+- Adds an in-editor compatibility note reminding users to try both VST loaders,
+  because some plug-ins behave better in one mode than the other.
+
+### Installer Diagnostics
+
+- Adds `install-diagnostics.log` when APO registration fails, making missing
+  bundled runtime files easier to identify from user reports.
+- Checks the installed APO, audio runtime, Visual C++ runtime and Qt runtime
+  files as `present` or `missing` without trying to replace Windows system
+  DLLs.
+- If bundled DLLs are missing, the installer can ask the user before copying
+  those local DLLs again and retrying APO registration.
+- Keeps the actual `regsvr32` exit code in the log for cases where all bundled
+  files are present but Windows still refuses registration.
+- Runs an embedded 64-bit DLL load diagnostic on registration failure so the
+  log can include the Windows loader error code and message for
+  `EqualizerAPO.dll`.
 
 ## Native Tools And Editor Update - June 18, 2026 (Exp Branch)
 

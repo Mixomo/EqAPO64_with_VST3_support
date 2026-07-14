@@ -11,6 +11,12 @@
     <ClInclude Include="filters\BiQuadFilterFactory.h">
       <Filter>filters</Filter>
     </ClInclude>
+    <ClInclude Include="filters\ParametricEQFilter.h">
+      <Filter>filters</Filter>
+    </ClInclude>
+    <ClInclude Include="filters\ParametricEQFilterFactory.h">
+      <Filter>filters</Filter>
+    </ClInclude>
     <ClInclude Include="filters\ChannelFilter.h">
       <Filter>filters</Filter>
     </ClInclude>
@@ -74,6 +80,12 @@
     <ClInclude Include="filters\VSTPluginFilterFactory.h">
       <Filter>filters</Filter>
     </ClInclude>
+    <ClInclude Include="filters\HeadphoneCalibrationFilter.h">
+      <Filter>filters</Filter>
+    </ClInclude>
+    <ClInclude Include="filters\HeadphoneCalibrationFilterFactory.h">
+      <Filter>filters</Filter>
+    </ClInclude>
     <ClInclude Include="helpers\AbstractLibrary.h">
       <Filter>helpers</Filter>
     </ClInclude>
@@ -102,6 +114,9 @@
       <Filter>helpers</Filter>
     </ClInclude>
     <ClInclude Include="helpers\UncaughtExceptions.h">
+      <Filter>helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="helpers\VSTDiagnostics.h">
       <Filter>helpers</Filter>
     </ClInclude>
     <ClInclude Include="helpers\VSTPluginInstance.h">
@@ -154,6 +169,12 @@
       <Filter>filters</Filter>
     </ClCompile>
     <ClCompile Include="filters\BiQuadFilterFactory.cpp">
+      <Filter>filters</Filter>
+    </ClCompile>
+    <ClCompile Include="filters\ParametricEQFilter.cpp">
+      <Filter>filters</Filter>
+    </ClCompile>
+    <ClCompile Include="filters\ParametricEQFilterFactory.cpp">
       <Filter>filters</Filter>
     </ClCompile>
     <ClCompile Include="filters\ChannelFilter.cpp">
@@ -219,6 +240,12 @@
     <ClCompile Include="filters\VSTPluginFilterFactory.cpp">
       <Filter>filters</Filter>
     </ClCompile>
+    <ClCompile Include="filters\HeadphoneCalibrationFilter.cpp">
+      <Filter>filters</Filter>
+    </ClCompile>
+    <ClCompile Include="filters\HeadphoneCalibrationFilterFactory.cpp">
+      <Filter>filters</Filter>
+    </ClCompile>
     <ClCompile Include="helpers\AbstractLibrary.cpp">
       <Filter>helpers</Filter>
     </ClCompile>
@@ -240,10 +267,25 @@
     <ClCompile Include="helpers\VST3PluginIIDs.cpp">
       <Filter>helpers</Filter>
     </ClCompile>
+    <ClCompile Include="helpers\VSTDiagnostics.cpp">
+      <Filter>helpers</Filter>
+    </ClCompile>
     <ClCompile Include="helpers\VSTPluginInstance.cpp">
       <Filter>helpers</Filter>
     </ClCompile>
     <ClCompile Include="helpers\VSTPluginLibrary.cpp">
+      <Filter>helpers</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\vst3sdk\public.sdk\source\common\threadchecker_win32.cpp">
+      <Filter>helpers</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\vst3sdk\pluginterfaces\base\funknown.cpp">
+      <Filter>helpers</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\vst3sdk\public.sdk\source\vst\hosting\connectionproxy.cpp">
+      <Filter>helpers</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\vst3sdk\public.sdk\source\vst\hosting\parameterchanges.cpp">
       <Filter>helpers</Filter>
     </ClCompile>
     <ClCompile Include="libHybridConv-0.1.1\libHybridConv_eapo.cpp">

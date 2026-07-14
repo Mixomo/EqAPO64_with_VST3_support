@@ -61,6 +61,13 @@
      </property>
     </widget>
    </item>
+   <item row="0" column="3">
+    <widget class="QComboBox" name="vst3ClassComboBox">
+     <property name="toolTip">
+      <string>Select the VST3 plug-in class inside this bundle</string>
+     </property>
+    </widget>
+   </item>
    <item row="0" column="0">
     <widget class="QLabel" name="label">
      <property name="sizePolicy">

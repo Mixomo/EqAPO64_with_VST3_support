@@ -79,9 +79,20 @@ Steinberg::IPluginFactory* VSTPluginLibrary::getFactory() const
 	return factory;
 }
 
-const Steinberg::PClassInfo& VSTPluginLibrary::getVST3ClassInfo() const
+const Steinberg::PClassInfo& VSTPluginLibrary::getVST3ClassInfo(int index) const
 {
+	if (!vst3ClassInfos.empty())
+	{
+		if (index < 0 || index >= static_cast<int>(vst3ClassInfos.size()))
+			index = 0;
+		return vst3ClassInfos[index];
+	}
 	return vst3ClassInfo;
+}
+
+int VSTPluginLibrary::getVST3ClassCount() const
+{
+	return static_cast<int>(vst3ClassInfos.size());
 }
 
 bool VSTPluginLibrary::loadFunctions()
@@ -111,12 +122,13 @@ int VSTPluginLibrary::customInitialize()
 		if (factory->getClassInfo(i, &info) == Steinberg::kResultOk
 			&& strcmp(info.category, kVstAudioEffectClass) == 0)
 		{
-			vst3ClassInfo = info;
-			return 0;
+			if (vst3ClassInfos.empty())
+				vst3ClassInfo = info;
+			vst3ClassInfos.push_back(info);
 		}
 	}
 
-	return FUNCTIONS_MISSING;
+	return vst3ClassInfos.empty() ? FUNCTIONS_MISSING : 0;
 }
 
 VSTPluginLibrary::VSTPluginLibrary(const wstring& libPath)

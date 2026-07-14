@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core gui
+QT       += core gui network
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -49,11 +49,15 @@ SOURCES += main.cpp\
 	../filters/BiQuadFilter.cpp \
 	../filters/BiQuadFilterFactory.cpp \
 	guis/BiQuadFilterGUIFactory.cpp \
+	../filters/ParametricEQFilter.cpp \
+	../filters/ParametricEQFilterFactory.cpp \
+	guis/ParametricEQFilterGUIFactory.cpp \
 	guis/CopyFilterGUIFactory.cpp \
 	guis/CopyFilterGUI.cpp \
 	guis/CopyFilterGUIConnectionItem.cpp \
 	guis/CopyFilterGUIChannelItem.cpp \
 	guis/AudioToolFilterGUIFactory.cpp \
+	guis/HeadphoneCalibrationFilterGUIFactory.cpp \
 	../filters/CopyFilter.cpp \
 	../filters/CopyFilterFactory.cpp \
 	../filters/PanFilter.cpp \
@@ -68,6 +72,8 @@ SOURCES += main.cpp\
 	../filters/ToneGeneratorFilterFactory.cpp \
 	../filters/VUMeterFilter.cpp \
 	../filters/VUMeterFilterFactory.cpp \
+	../filters/HeadphoneCalibrationFilter.cpp \
+	../filters/HeadphoneCalibrationFilterFactory.cpp \
 	../IFilter.cpp \
 	guis/CopyFilterGUIScene.cpp \
 	guis/CopyFilterGUIForm.cpp \
@@ -134,6 +140,7 @@ SOURCES += main.cpp\
 	../AbstractAPOInfo.cpp \
 	../VoicemeeterAPOInfo.cpp \
 	../helpers/AbstractLibrary.cpp \
+	../helpers/VSTDiagnostics.cpp \
 	../helpers/VST3PluginIIDs.cpp \
 	../helpers/VSTPluginLibrary.cpp \
 	guis/VSTPluginFilterGUI.cpp \
@@ -184,11 +191,15 @@ HEADERS  += \
 	../filters/BiQuadFilter.h \
 	../filters/BiQuadFilterFactory.h \
 	guis/BiQuadFilterGUIFactory.h \
+	../filters/ParametricEQFilter.h \
+	../filters/ParametricEQFilterFactory.h \
+	guis/ParametricEQFilterGUIFactory.h \
 	guis/CopyFilterGUIFactory.h \
 	guis/CopyFilterGUI.h \
 	guis/CopyFilterGUIConnectionItem.h \
 	guis/CopyFilterGUIChannelItem.h \
 	guis/AudioToolFilterGUIFactory.h \
+	guis/HeadphoneCalibrationFilterGUIFactory.h \
 	../filters/CopyFilter.h \
 	../filters/CopyFilterFactory.h \
 	../filters/AudioToolsHelper.h \
@@ -205,6 +216,8 @@ HEADERS  += \
 	../filters/VUMeterProtocol.h \
 	../filters/VUMeterFilter.h \
 	../filters/VUMeterFilterFactory.h \
+	../filters/HeadphoneCalibrationFilter.h \
+	../filters/HeadphoneCalibrationFilterFactory.h \
 	../IFilter.h \
 	../IFilterFactory.h \
 	guis/CopyFilterGUIScene.h \
@@ -273,6 +286,7 @@ HEADERS  += \
 	../AbstractAPOInfo.h \
 	../VoicemeeterAPOInfo.h \
 	../helpers/AbstractLibrary.h \
+	../helpers/VSTDiagnostics.h \
 	../helpers/VSTPluginLibrary.h \
 	guis/VSTPluginFilterGUI.h \
 	guis/VSTPluginFilterGUIFactory.h \

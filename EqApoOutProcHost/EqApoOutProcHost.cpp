@@ -481,7 +481,7 @@ static int runVstGuiHost(const std::wstring& vstConfigPath, const std::wstring& 
 		exitCode = 12;
 	else
 	{
-		effect.reset(new VSTPluginInstance(library, 1));
+		effect.reset(new VSTPluginInstance(library, 1, config.vst3ClassIndex));
 		if (!effect->initialize())
 			exitCode = 13;
 	}
@@ -757,7 +757,7 @@ static bool initializeVst(OutProcAudioHeader* header, VstRuntime& vst)
 		firstEffect->setProcessLevel(2);
 	}
 	else
-		firstEffect.reset(new VSTPluginInstance(vst.library, 2));
+		firstEffect.reset(new VSTPluginInstance(vst.library, 2, vst.config.vst3ClassIndex));
 
 	if (!firstEffect || (!firstEffect->numInputs() && !firstEffect->numOutputs() && !firstEffect->initialize()))
 	{
@@ -779,7 +779,7 @@ static bool initializeVst(OutProcAudioHeader* header, VstRuntime& vst)
 	vst.effects.push_back(std::move(firstEffect));
 	for (std::uint32_t i = 1; i < effectCount; ++i)
 	{
-		std::unique_ptr<VSTPluginInstance> effect(new VSTPluginInstance(vst.library, 2));
+		std::unique_ptr<VSTPluginInstance> effect(new VSTPluginInstance(vst.library, 2, vst.config.vst3ClassIndex));
 		if (!effect->initialize())
 		{
 			vst.failed = true;
@@ -795,8 +795,7 @@ static bool initializeVst(OutProcAudioHeader* header, VstRuntime& vst)
 			effect->setUsedChannelCount(header->channelCount % vst.effectChannelCount);
 		else
 		effect->setUsedChannelCount(vst.effectChannelCount);
-		if (!(vst.usesGuiEffect && i == 0))
-			effect->writeToEffect(vst.config.chunkData, vst.config.paramMap);
+		effect->writeToEffect(vst.config.chunkData, vst.config.paramMap);
 		effect->prepareForProcessing(static_cast<float>(header->sampleRate), static_cast<int>(header->maxFrames));
 		effect->startProcessing();
 	}

@@ -18,8 +18,14 @@
 */
 
 #include <QFileDialog>
+#include <QLabel>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QMenu>
+#include <QToolButton>
+#include <QCoreApplication>
+#include <QDirIterator>
+#include <QHBoxLayout>
 #define ENABLE_SNDFILE_WINDOWS_PROTOTYPES 1
 #include <sndfile.h>
 #include <algorithm>
@@ -189,6 +195,40 @@ static bool regenerateFirFromMagnitude(const std::vector<double>& inputData, sf_
 	return true;
 }
 
+static double firMagnitudePeak(const std::vector<double>& data, sf_count_t frames, int channelCount)
+{
+	if (frames <= 0 || channelCount <= 0 || data.empty())
+		return 0.0;
+
+	const int fftSize = nextPowerOfTwo(static_cast<int>(frames) * 4);
+	double peak = 0.0;
+	for (int channel = 0; channel < channelCount; channel++)
+	{
+		double* time = (double*)fftw_malloc(sizeof(double) * fftSize);
+		fftw_complex* freq = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * (fftSize / 2 + 1));
+		if (time == nullptr || freq == nullptr)
+		{
+			fftw_free(freq);
+			fftw_free(time);
+			return peak;
+		}
+		memset(time, 0, sizeof(double) * fftSize);
+		for (sf_count_t i = 0; i < frames; i++)
+			time[i] = data[static_cast<size_t>(i) * channelCount + channel];
+		fftw_plan plan = fftw_plan_dft_r2c_1d(fftSize, time, freq, FFTW_ESTIMATE);
+		if (plan != nullptr)
+		{
+			fftw_execute(plan);
+			for (int i = 0; i <= fftSize / 2; i++)
+				peak = std::max(peak, std::hypot(freq[i][0], freq[i][1]));
+			fftw_destroy_plan(plan);
+		}
+		fftw_free(freq);
+		fftw_free(time);
+	}
+	return peak;
+}
+
 ConvolutionFilterGUI::ConvolutionFilterGUI(const QString& configPath, unsigned deviceSampleRate, const QString& deviceGuid, const QString& path)
 	: ui(new Ui::ConvolutionFilterGUI), deviceGuid(deviceGuid), deviceSampleRate(deviceSampleRate)
 {
@@ -197,7 +237,35 @@ ConvolutionFilterGUI::ConvolutionFilterGUI(const QString& configPath, unsigned d
 	this->configPath = configPath;
 	ui->pathLineEdit->setText(path);
 
-	connect(ui->matchSampleRatePushButton, &QPushButton::clicked, this, [this]() { matchDeviceSampleRate(); });
+	bundledIrButton = new QToolButton(this);
+	bundledIrButton->setText(tr("Bundled IR/FIR"));
+	bundledIrButton->setPopupMode(QToolButton::InstantPopup);
+	ui->gridLayout->addWidget(new QLabel(tr("Bundled IR/FIR:"), this), 1, 0);
+
+	QWidget* bundledIrNavWidget = new QWidget(this);
+	QHBoxLayout* bundledIrNavLayout = new QHBoxLayout(bundledIrNavWidget);
+	bundledIrNavLayout->setContentsMargins(0, 0, 0, 0);
+	bundledIrNavLayout->setSpacing(2);
+	QToolButton* previousBundledIrButton = new QToolButton(bundledIrNavWidget);
+	previousBundledIrButton->setText("<");
+	previousBundledIrButton->setToolTip(tr("Previous bundled IR/FIR"));
+	QToolButton* nextBundledIrButton = new QToolButton(bundledIrNavWidget);
+	nextBundledIrButton->setText(">");
+	nextBundledIrButton->setToolTip(tr("Next bundled IR/FIR"));
+	bundledIrNavLayout->addWidget(bundledIrButton);
+	bundledIrNavLayout->addWidget(previousBundledIrButton);
+	bundledIrNavLayout->addWidget(nextBundledIrButton);
+	bundledIrNavLayout->addStretch(1);
+	ui->gridLayout->addWidget(bundledIrNavWidget, 1, 1, 1, 3);
+
+	QLabel* bundledIrCreditLabel = new QLabel(tr("Bundled IRs are free to use, but their copyright belongs to Greg Hopkins (Hopkins Media Services) and Aleksey Vaneev (Voxengo)."), this);
+	bundledIrCreditLabel->setWordWrap(true);
+	ui->gridLayout->addWidget(bundledIrCreditLabel, 2, 0, 1, 4);
+	populateBundledImpulseResponses();
+
+	connect(ui->matchSampleRatePushButton, &QPushButton::clicked, this, [this]() { matchDeviceSampleRate(true); });
+	connect(previousBundledIrButton, &QToolButton::clicked, this, [this]() { selectBundledImpulseAt(currentBundledImpulseIndex() - 1); });
+	connect(nextBundledIrButton, &QToolButton::clicked, this, [this]() { selectBundledImpulseAt(currentBundledImpulseIndex() + 1); });
 	connect(ui->pathLineEdit, &QLineEdit::textChanged, this, [this]() { updateFileInfo(); });
 	QPushButton* resetButton = new QPushButton(tr("Reset"), this);
 	ui->gridLayout->addWidget(resetButton, 0, 4);
@@ -348,42 +416,143 @@ unsigned ConvolutionFilterGUI::liveDeviceSampleRate() const
 	return result;
 }
 
-void ConvolutionFilterGUI::matchDeviceSampleRate()
+void ConvolutionFilterGUI::populateBundledImpulseResponses()
+{
+	if (bundledIrButton == nullptr)
+		return;
+
+	bundledImpulsePaths.clear();
+	const QDir irDir(QDir(QCoreApplication::applicationDirPath()).absoluteFilePath("IRs"));
+	if (!irDir.exists())
+		return;
+
+	const QStringList filters = QStringList() << "*.wav" << "*.flac" << "*.ogg";
+	QFileInfoList allFiles;
+	QDirIterator it(irDir.absolutePath(), filters, QDir::Files, QDirIterator::Subdirectories);
+	while (it.hasNext())
+		allFiles.append(QFileInfo(it.next()));
+	std::sort(allFiles.begin(), allFiles.end(), [&irDir](const QFileInfo& a, const QFileInfo& b) {
+		return irDir.relativeFilePath(a.absoluteFilePath()).compare(irDir.relativeFilePath(b.absoluteFilePath()), Qt::CaseInsensitive) < 0;
+	});
+	QMenu* rootMenu = new QMenu(bundledIrButton);
+	for (const QFileInfo& file : allFiles)
+	{
+		const QString absolutePath = QDir::toNativeSeparators(file.absoluteFilePath());
+		bundledImpulsePaths.append(absolutePath);
+		const QStringList parts = irDir.relativeFilePath(file.absoluteFilePath()).split('/', Qt::SkipEmptyParts);
+		QMenu* parent = rootMenu;
+		for (int i = 0; i < parts.size(); ++i)
+		{
+			if (i == parts.size() - 1)
+			{
+				QAction* action = parent->addAction(parts[i]);
+				connect(action, &QAction::triggered, this, [this, absolutePath]() { selectBundledImpulseResponse(absolutePath); });
+				break;
+			}
+			QMenu* child = nullptr;
+			for (QAction* action : parent->actions())
+			{
+				if (action->menu() != nullptr && action->text() == parts[i])
+				{
+					child = action->menu();
+					break;
+				}
+			}
+			if (child == nullptr)
+				child = parent->addMenu(parts[i]);
+			parent = child;
+		}
+	}
+	bundledIrButton->setMenu(rootMenu);
+}
+
+void ConvolutionFilterGUI::selectBundledImpulseResponse(const QString& absolutePath)
+{
+	if (absolutePath.isEmpty())
+		return;
+
+	for (int i = 0; i < bundledImpulsePaths.size(); i++)
+	{
+		if (bundledImpulsePaths[i].compare(QDir::toNativeSeparators(absolutePath), Qt::CaseInsensitive) == 0)
+		{
+			currentBundledImpulseListIndex = i;
+			break;
+		}
+	}
+
+	QFileInfo configInfo(configPath);
+	const QString relativePath = configInfo.absoluteDir().relativeFilePath(absolutePath);
+	ui->pathLineEdit->setText(QDir::toNativeSeparators(relativePath.startsWith("..") ? absolutePath : relativePath));
+	updateFileInfo();
+	matchDeviceSampleRate(false);
+	emit updateModel();
+}
+
+void ConvolutionFilterGUI::selectBundledImpulseAt(int index)
+{
+	if (bundledImpulsePaths.isEmpty())
+		return;
+
+	if (index < 0)
+		index = bundledImpulsePaths.size() - 1;
+	else if (index >= bundledImpulsePaths.size())
+		index = 0;
+
+	currentBundledImpulseListIndex = index;
+	selectBundledImpulseResponse(bundledImpulsePaths[index]);
+}
+
+int ConvolutionFilterGUI::currentBundledImpulseIndex()
+{
+	const QString currentPath = absoluteImpulsePath();
+	if (!currentPath.isEmpty())
+	{
+		for (int i = 0; i < bundledImpulsePaths.size(); i++)
+		{
+			if (bundledImpulsePaths[i].compare(currentPath, Qt::CaseInsensitive) == 0)
+			{
+				currentBundledImpulseListIndex = i;
+				return i;
+			}
+		}
+	}
+
+	return currentBundledImpulseListIndex;
+}
+
+bool ConvolutionFilterGUI::matchDeviceSampleRate(bool interactive)
 {
 	unsigned targetSampleRate = refreshDeviceSampleRate();
 	if (targetSampleRate == 0)
 	{
-		QMessageBox::warning(this, tr("Convolution"), tr("Could not determine the current device sample rate."));
-		return;
+		if (interactive)
+			QMessageBox::warning(this, tr("Convolution"), tr("Could not determine the current device sample rate."));
+		return false;
 	}
 
 	QString inputPath = absoluteImpulsePath();
 	if (inputPath.isEmpty() || !QFileInfo::exists(inputPath))
 	{
-		QMessageBox::warning(this, tr("Convolution"), tr("Select an IR/FIR file first."));
-		return;
+		if (interactive)
+			QMessageBox::warning(this, tr("Convolution"), tr("Select an IR/FIR file first."));
+		return false;
 	}
 
 	SF_INFO inputInfo = {};
 	SNDFILE* inputFile = sf_wchar_open(inputPath.toStdWString().c_str(), SFM_READ, &inputInfo);
 	if (inputFile == nullptr)
 	{
-		QMessageBox::warning(this, tr("Convolution"), tr("Unsupported IR/FIR file."));
-		return;
+		if (interactive)
+			QMessageBox::warning(this, tr("Convolution"), tr("Unsupported IR/FIR file."));
+		return false;
 	}
 
 	if (inputInfo.channels <= 0 || inputInfo.frames <= 0 || inputInfo.samplerate <= 0)
 	{
 		sf_close(inputFile);
-		QMessageBox::warning(this, tr("Convolution"), tr("The IR/FIR file has invalid metadata."));
-		return;
-	}
-
-	if (inputInfo.samplerate == static_cast<int>(targetSampleRate))
-	{
-		sf_close(inputFile);
-		QMessageBox::information(this, tr("Convolution"), tr("The loaded IR/FIR already matches the current device sample rate."));
-		return;
+		if (interactive)
+			QMessageBox::warning(this, tr("Convolution"), tr("The IR/FIR file has invalid metadata."));
+		return false;
 	}
 
 	std::vector<double> inputData(static_cast<size_t>(inputInfo.frames) * inputInfo.channels);
@@ -399,24 +568,46 @@ void ConvolutionFilterGUI::matchDeviceSampleRate()
 
 	if (framesRead <= 0)
 	{
-		QMessageBox::warning(this, tr("Convolution"), tr("Could not read the IR/FIR samples."));
-		return;
+		if (interactive)
+			QMessageBox::warning(this, tr("Convolution"), tr("Could not read the IR/FIR samples."));
+		return false;
 	}
 	if (framesRead != inputInfo.frames)
 		inputData.resize(static_cast<size_t>(framesRead) * inputInfo.channels);
 
 	std::vector<double> outputData;
-	sf_count_t outputFrames = 0;
-	if (!regenerateFirFromMagnitude(inputData, framesRead, inputInfo.channels, inputInfo.samplerate,
-		static_cast<int>(targetSampleRate), outputData, outputFrames))
+	sf_count_t outputFrames = framesRead;
+	if (inputInfo.samplerate == static_cast<int>(targetSampleRate))
 	{
-		QMessageBox::warning(this, tr("Convolution"), tr("Could not regenerate a matched FIR from the loaded IR/FIR magnitude response."));
-		return;
+		outputData = inputData;
 	}
+	else
+	{
+		if (!regenerateFirFromMagnitude(inputData, framesRead, inputInfo.channels, inputInfo.samplerate,
+			static_cast<int>(targetSampleRate), outputData, outputFrames))
+		{
+			if (interactive)
+				QMessageBox::warning(this, tr("Convolution"), tr("Could not regenerate a matched FIR from the loaded IR/FIR magnitude response."));
+			return false;
+		}
+	}
+	const double magnitudePeak = firMagnitudePeak(outputData, outputFrames, inputInfo.channels);
+	if (inputInfo.samplerate == static_cast<int>(targetSampleRate) && magnitudePeak > 0.999 && magnitudePeak < 1.001)
+	{
+		if (interactive)
+			QMessageBox::information(this, tr("Convolution"), tr("The loaded IR/FIR already matches the current device sample rate and peak level."));
+		return true;
+	}
+	if (magnitudePeak > 0.0)
+		for (double& sample : outputData)
+			sample /= magnitudePeak;
 
 	QFileInfo inputFileInfo(inputPath);
-	QString outputPath = inputFileInfo.absoluteDir().absoluteFilePath(
-		QString("%1_mag_%2Hz.wav").arg(inputFileInfo.completeBaseName()).arg(targetSampleRate));
+	QDir configDir(QFileInfo(configPath).absoluteDir());
+	QDir generatedDir(configDir.absoluteFilePath("generated-ir"));
+	generatedDir.mkpath(".");
+	QString outputPath = generatedDir.absoluteFilePath(
+		QString("%1_matched_normalized_%2Hz.wav").arg(inputFileInfo.completeBaseName()).arg(targetSampleRate));
 
 	SF_INFO outputInfo = {};
 	outputInfo.channels = inputInfo.channels;
@@ -425,26 +616,27 @@ void ConvolutionFilterGUI::matchDeviceSampleRate()
 	SNDFILE* outputFile = sf_wchar_open(outputPath.toStdWString().c_str(), SFM_WRITE, &outputInfo);
 	if (outputFile == nullptr)
 	{
-		QMessageBox::warning(this, tr("Convolution"), tr("Could not create the regenerated matched FIR file."));
-		return;
+		if (interactive)
+			QMessageBox::warning(this, tr("Convolution"), tr("Could not create the regenerated matched FIR file."));
+		return false;
 	}
 	sf_count_t framesWritten = sf_writef_double(outputFile, outputData.data(), outputFrames);
 	sf_close(outputFile);
 	if (framesWritten != outputFrames)
 	{
-		QMessageBox::warning(this, tr("Convolution"), tr("Could not write the complete regenerated matched FIR file."));
-		return;
+		if (interactive)
+			QMessageBox::warning(this, tr("Convolution"), tr("Could not write the complete regenerated matched FIR file."));
+		return false;
 	}
 
-	QFileInfo configInfo(configPath);
-	QDir configDir = configInfo.absoluteDir();
 	QString relativePath = configDir.relativeFilePath(outputPath);
-	if (relativePath.startsWith("../../"))
+	if (relativePath.startsWith(".."))
 		relativePath = outputPath;
 	ui->pathLineEdit->setText(QDir::toNativeSeparators(relativePath));
 	deviceSampleRate = targetSampleRate;
 	updateFileInfo();
 	emit updateModel();
+	return true;
 }
 
 void ConvolutionFilterGUI::updateFileInfo()
@@ -510,7 +702,16 @@ void ConvolutionFilterGUI::updateFileInfo()
 
 					if (sampleRate != deviceSampleRate)
 					{
-						error = tr("The loaded IR/FIR sample rate does not match the current device sample rate (%0 Hz), so the IR/FIR is not being applied.\nUse the sample-rate-matched IR/FIR button beside the sample rate, or export a native FIR from the GraphicEQ module.").arg(deviceSampleRate);
+						error = tr("The loaded IR/FIR sample rate does not match the current device sample rate (%0 Hz). Creating a matched, normalized FIR...").arg(deviceSampleRate);
+						if (!autoMatchingSampleRate)
+						{
+							autoMatchingSampleRate = true;
+							const bool matched = matchDeviceSampleRate(false);
+							autoMatchingSampleRate = false;
+							if (matched)
+								return;
+							error = tr("The loaded IR/FIR sample rate does not match the current device sample rate (%0 Hz), and automatic matching failed. Export a native FIR from GraphicEQ or choose a matching IR/FIR.").arg(deviceSampleRate);
+						}
 					}
 				}
 			}

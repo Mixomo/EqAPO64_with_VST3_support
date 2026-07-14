@@ -35,6 +35,8 @@ SetCompressor /SOLID lzma
   Var StartMenuFolder
   Var OldStartMenuFolder
   Var OLDINSTDIR
+  Var InstallLogPath
+  Var DiagnosticIssues
   
 ;--------------------------------
 ;Interface Settings
@@ -89,6 +91,26 @@ Var renameIndex
       IntOp $renameIndex $renameIndex + 1
     ${EndWhile}
     Rename "${path}" "$renamePath"
+  ${EndIf}
+!macroend
+
+!macro LogLoadLibrary dll
+  FileWrite $9 "Checking ${dll}... "
+  ${IfNot} ${FileExists} "$INSTDIR\${dll}"
+    FileWrite $9 "missing$\r$\n"
+    StrCpy $DiagnosticIssues "$DiagnosticIssues- ${dll}: missing$\r$\n"
+  ${Else}
+    FileWrite $9 "present$\r$\n"
+  ${EndIf}
+!macroend
+
+!macro LogFileExists file
+  FileWrite $9 "Checking ${file}... "
+  ${IfNot} ${FileExists} "$INSTDIR\${file}"
+    FileWrite $9 "missing$\r$\n"
+    StrCpy $DiagnosticIssues "$DiagnosticIssues- ${file}: missing$\r$\n"
+  ${Else}
+    FileWrite $9 "present$\r$\n"
   ${EndIf}
 !macroend
     
@@ -178,6 +200,111 @@ Function CreateRestorePoint
   ${Else}
     DetailPrint "PowerShell was not found. Skipping restore point creation."
     MessageBox MB_ICONEXCLAMATION|MB_OK $(RestorePointWarning)
+  ${EndIf}
+FunctionEnd
+
+Function WriteInstallDiagnostics
+  StrCpy $DiagnosticIssues ""
+  StrCpy $InstallLogPath "$INSTDIR\install-diagnostics.log"
+  FileOpen $9 "$InstallLogPath" w
+  ${If} $9 == ""
+    Return
+  ${EndIf}
+
+  FileWrite $9 "Equalizer APO installer diagnostics$\r$\n"
+  FileWrite $9 "Version: ${VERSION}$\r$\n"
+  FileWrite $9 "Target architecture: ${TARGET_ARCH}$\r$\n"
+  FileWrite $9 "Install path: $INSTDIR$\r$\n"
+  FileWrite $9 "$\r$\n"
+
+  !insertmacro LogLoadLibrary "EqualizerAPO.dll"
+  !insertmacro LogFileExists "EqApoOutProcHost.exe"
+  !insertmacro LogFileExists "Editor.exe"
+  !insertmacro LogFileExists "DeviceSelector.exe"
+  !insertmacro LogFileExists "Benchmark.exe"
+  !insertmacro LogFileExists "VoicemeeterClient.exe"
+  !insertmacro LogFileExists "UpdateChecker.exe"
+  !insertmacro LogLoadLibrary "libfftw3.dll"
+  !insertmacro LogLoadLibrary "fftw3.dll"
+  !insertmacro LogLoadLibrary "sndfile.dll"
+  !insertmacro LogLoadLibrary "FLAC.dll"
+  !insertmacro LogLoadLibrary "libmp3lame.dll"
+  !insertmacro LogLoadLibrary "mpg123.dll"
+  !insertmacro LogLoadLibrary "ogg.dll"
+  !insertmacro LogLoadLibrary "opus.dll"
+  !insertmacro LogLoadLibrary "vorbis.dll"
+  !insertmacro LogLoadLibrary "vorbisenc.dll"
+  !insertmacro LogLoadLibrary "vorbisfile.dll"
+  !insertmacro LogLoadLibrary "msvcp140.dll"
+  !insertmacro LogLoadLibrary "msvcp140_1.dll"
+  !insertmacro LogLoadLibrary "vcruntime140.dll"
+  !insertmacro LogLoadLibrary "vcruntime140_1.dll"
+  !insertmacro LogLoadLibrary "Qt6Core.dll"
+  !insertmacro LogLoadLibrary "Qt6Gui.dll"
+  !insertmacro LogLoadLibrary "Qt6Network.dll"
+  !insertmacro LogLoadLibrary "Qt6Svg.dll"
+  !insertmacro LogLoadLibrary "Qt6Widgets.dll"
+  !insertmacro LogLoadLibrary "d3dcompiler_47.dll"
+
+  FileClose $9
+FunctionEnd
+
+Function InstallBundledRuntimeDlls
+  SetOutPath "$INSTDIR"
+  File "${LIBPATH}\libfftw3.dll"
+  File "${LIBPATH}\fftw3.dll"
+  File "${LIBPATH}\sndfile.dll"
+  File "${LIBPATH}\FLAC.dll"
+  File "${LIBPATH}\libmp3lame.dll"
+  File "${LIBPATH}\mpg123.dll"
+  File "${LIBPATH}\ogg.dll"
+  File "${LIBPATH}\opus.dll"
+  File "${LIBPATH}\vorbis.dll"
+  File "${LIBPATH}\vorbisenc.dll"
+  File "${LIBPATH}\vorbisfile.dll"
+  File "${LIBPATH}\msvcp140.dll"
+  File "${LIBPATH}\msvcp140_1.dll"
+  File "${LIBPATH}\vcruntime140.dll"
+  File "${LIBPATH}\vcruntime140_1.dll"
+  File "${LIBPATH}\d3dcompiler_47.dll"
+  !if /FileExists "${LIBPATH}\dxcompiler.dll"
+    File "${LIBPATH}\dxcompiler.dll"
+  !endif
+  !if /FileExists "${LIBPATH}\dxil.dll"
+    File "${LIBPATH}\dxil.dll"
+  !endif
+  File "${LIBPATH}\icuuc.dll"
+  File "${LIBPATH}\Qt6Core.dll"
+  File "${LIBPATH}\Qt6Gui.dll"
+  File "${LIBPATH}\Qt6Network.dll"
+  File "${LIBPATH}\Qt6Svg.dll"
+  File "${LIBPATH}\Qt6Widgets.dll"
+FunctionEnd
+
+Function WriteX64LoadDiagnostics
+  InitPluginsDir
+  SetOutPath "$PLUGINSDIR"
+  File "x64-load-check.ps1"
+
+  StrCpy $0 "$WINDIR\Sysnative\WindowsPowerShell\v1.0\powershell.exe"
+  ${IfNot} ${FileExists} "$0"
+    StrCpy $0 "$SYSDIR\WindowsPowerShell\v1.0\powershell.exe"
+  ${EndIf}
+
+  ${If} ${FileExists} "$0"
+    nsExec::ExecToLog '"$0" -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\x64-load-check.ps1" "$INSTDIR\EqualizerAPO.dll" "$InstallLogPath"'
+    Pop $2
+    FileOpen $9 "$InstallLogPath" a
+    ${If} $9 != ""
+      FileWrite $9 "64-bit LoadLibrary diagnostic exit code: $2$\r$\n"
+      FileClose $9
+    ${EndIf}
+  ${Else}
+    FileOpen $9 "$InstallLogPath" a
+    ${If} $9 != ""
+      FileWrite $9 "$\r$\n64-bit PowerShell was not found. Skipping LoadLibrary diagnostic.$\r$\n"
+      FileClose $9
+    ${EndIf}
   ${EndIf}
 FunctionEnd
 
@@ -308,7 +435,17 @@ Section "-Install"
   File /oname=qt\styles\qmodernwindowsstyle.dll "${LIBPATH}\qt\styles\qmodernwindowsstyle.dll"
   File /oname=qt\tls\qcertonlybackend.dll "${LIBPATH}\qt\tls\qcertonlybackend.dll"
   File /oname=qt\tls\qschannelbackend.dll "${LIBPATH}\qt\tls\qschannelbackend.dll"
-  
+
+  CreateDirectory "$INSTDIR\HeadphoneCalibrations"
+  SetOutPath "$INSTDIR\HeadphoneCalibrations"
+  File /r "${LIBPATH}\HeadphoneCalibrations\*"
+  SetOutPath "$INSTDIR"
+
+  CreateDirectory "$INSTDIR\IRs"
+  SetOutPath "$INSTDIR\IRs"
+  File /nonfatal /r "${LIBPATH}\IRs\*"
+  SetOutPath "$INSTDIR"
+
   File "Configuration tutorial (online).url"
   File "Configuration reference (online).url"
   
@@ -362,13 +499,39 @@ Section "-Install"
   WriteRegDWORD HKLM ${UNINST_REGPATH} "NoRepair" 1
 
   WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Audio" "DisableProtectedAudioDG" 1
+  Call WriteInstallDiagnostics
   ;RegDLL doesn't work for 64 bit dlls
   ExecWait '"$SYSDIR\regsvr32.exe" /s "$INSTDIR\EqualizerAPO.dll"' $1
   ${If} $1 != 0
     DeleteRegValue HKLM "Software\Microsoft\Windows\CurrentVersion\Audio" "DisableProtectedAudioDG"
-    MessageBox MB_ICONSTOP|MB_OK "Equalizer APO could not be registered. Installation will stop before modifying audio devices.$\r$\n$\r$\nThis usually means a required runtime DLL is missing or incompatible.$\r$\n$\r$\nregsvr32 exit code: $1"
-    Abort
+    FileOpen $9 "$InstallLogPath" a
+    ${If} $9 != ""
+      FileWrite $9 "$\r$\nregsvr32 exit code: $1$\r$\n"
+      FileClose $9
+    ${EndIf}
+    Call WriteX64LoadDiagnostics
+    ${If} $DiagnosticIssues != ""
+      MessageBox MB_ICONQUESTION|MB_YESNO "Equalizer APO could not be registered.$\r$\n$\r$\nThe installer found these missing or incompatible bundled files:$\r$\n$\r$\n$DiagnosticIssues$\r$\nSetup can reinstall the bundled DLLs into the Equalizer APO folder and retry registration.$\r$\n$\r$\nThis will not replace Windows system DLLs.$\r$\n$\r$\nDo you want to reinstall the bundled DLLs and retry?" IDNO registrationFailed
+      Call InstallBundledRuntimeDlls
+      Call WriteInstallDiagnostics
+      ExecWait '"$SYSDIR\regsvr32.exe" /s "$INSTDIR\EqualizerAPO.dll"' $1
+      ${If} $1 == 0
+        WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Audio" "DisableProtectedAudioDG" 1
+        Goto registrationOk
+      ${EndIf}
+      DeleteRegValue HKLM "Software\Microsoft\Windows\CurrentVersion\Audio" "DisableProtectedAudioDG"
+      FileOpen $9 "$InstallLogPath" a
+      ${If} $9 != ""
+        FileWrite $9 "$\r$\nregsvr32 retry exit code: $1$\r$\n"
+        FileClose $9
+      ${EndIf}
+      Call WriteX64LoadDiagnostics
+    ${EndIf}
+    registrationFailed:
+      MessageBox MB_ICONSTOP|MB_OK "Equalizer APO could not be registered. Installation will stop before modifying audio devices.$\r$\n$\r$\nThis usually means a required runtime DLL is missing or incompatible.$\r$\n$\r$\nregsvr32 exit code: $1$\r$\nDiagnostics log: $InstallLogPath"
+      Abort
   ${EndIf}
+  registrationOk:
 
   ExecWait '"$INSTDIR\DeviceSelector.exe" /i' $0
   
@@ -431,7 +594,9 @@ Section "-un.Uninstall"
   Delete "$INSTDIR\Configuration tutorial (online).url"
   
   RMDir /r "$INSTDIR\qt"
-  
+  RMDir /r "$INSTDIR\HeadphoneCalibrations"
+  RMDir /r "$INSTDIR\IRs"
+
   Delete "$INSTDIR\Qt6Widgets.dll"
   Delete "$INSTDIR\Qt6Svg.dll"
   Delete "$INSTDIR\Qt6Network.dll"

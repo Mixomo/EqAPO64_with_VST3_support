@@ -26,6 +26,7 @@
 #include "VSTPluginLibrary.h"
 #include "VSTPluginInstance.h"
 #include "pluginterfaces/base/futils.h"
+#include "public.sdk/source/vst/hosting/parameterchanges.h"
 
 using namespace std;
 using namespace Steinberg;
@@ -166,6 +167,7 @@ static EmptyVST3EventList emptyVST3EventList;
 
 static const char vst2StateEnvelopeMagic[] = "EAPOVST2STATE2\n";
 static const char vst3StateEnvelopeMagic[] = "EAPOVST3STATE2\n";
+static const wchar_t vst3ParamIdPrefix[] = L"#";
 
 static bool base64Decode(const wstring& value, vector<char>& data)
 {
@@ -364,10 +366,13 @@ public:
 	}
 
 	tresult PLUGIN_API beginEdit(ParamID) override { return kResultOk; }
-	tresult PLUGIN_API performEdit(ParamID, ParamValue) override
+	tresult PLUGIN_API performEdit(ParamID id, ParamValue value) override
 	{
 		if (instance != NULL)
+		{
+			instance->queueVST3ParameterChange(id, value);
 			instance->onAutomate();
+		}
 		return kResultOk;
 	}
 	tresult PLUGIN_API endEdit(ParamID) override { return kResultOk; }
@@ -510,8 +515,8 @@ static void registerVST3EditorHostWindowClass()
 	registered = true;
 }
 
-VSTPluginInstance::VSTPluginInstance(const std::shared_ptr<VSTPluginLibrary>& library, int processLevel)
-	: library(library), processLevel(processLevel)
+VSTPluginInstance::VSTPluginInstance(const std::shared_ptr<VSTPluginLibrary>& library, int processLevel, int vst3ClassIndex)
+	: library(library), processLevel(processLevel), vst3ClassIndex(vst3ClassIndex)
 {
 }
 
@@ -565,7 +570,7 @@ bool VSTPluginInstance::initializeVST3()
 {
 	vst3HostContext = new VST3HostContext(this);
 
-	const PClassInfo& classInfo = library->getVST3ClassInfo();
+	const PClassInfo& classInfo = library->getVST3ClassInfo(vst3ClassIndex);
 	FUID componentId(classInfo.cid);
 	TUID componentIid;
 	IComponent::iid.toTUID(componentIid);
@@ -665,7 +670,7 @@ int VSTPluginInstance::uniqueID() const
 {
 	if (library->isVST3())
 	{
-		const PClassInfo& classInfo = library->getVST3ClassInfo();
+		const PClassInfo& classInfo = library->getVST3ClassInfo(vst3ClassIndex);
 		int result = 0;
 		memcpy(&result, classInfo.cid, sizeof(result));
 		return result;
@@ -679,7 +684,7 @@ int VSTPluginInstance::uniqueID() const
 std::wstring VSTPluginInstance::getName() const
 {
 	if (library->isVST3())
-		return StringHelper::toWString(library->getVST3ClassInfo().name, CP_UTF8);
+		return StringHelper::toWString(library->getVST3ClassInfo(vst3ClassIndex).name, CP_UTF8);
 	if (effect == NULL)
 		return L"";
 
@@ -808,12 +813,29 @@ void VSTPluginInstance::writeToEffect(const std::wstring& chunkData, const std::
 					vst3Controller->setState(stream);
 					stream->release();
 				}
+				if (!controllerState.empty() && vst3Component != NULL)
+				{
+					VST3MemoryStream* stream = new VST3MemoryStream(controllerState);
+					vst3Component->setState(stream);
+					stream->release();
+				}
 
 				const unordered_map<wstring, float>& paramsToApply = isEnvelope ? envelopeParamMap : paramMap;
 				if (vst3Controller != NULL)
 				{
 					for (auto it : paramsToApply)
 					{
+						if (!it.first.empty() && it.first[0] == vst3ParamIdPrefix[0])
+						{
+							wchar_t* end = NULL;
+							ParamID id = static_cast<ParamID>(wcstoul(it.first.c_str() + 1, &end, 10));
+							if (end != it.first.c_str() + 1)
+							{
+								vst3Controller->setParamNormalized(id, it.second);
+								queueVST3ParameterChange(id, it.second);
+							}
+							continue;
+						}
 						for (int32 i = 0; i < vst3Controller->getParameterCount(); i++)
 						{
 							ParameterInfo info;
@@ -821,6 +843,7 @@ void VSTPluginInstance::writeToEffect(const std::wstring& chunkData, const std::
 								&& it.first == wstring((wchar_t*)info.title))
 							{
 								vst3Controller->setParamNormalized(info.id, it.second);
+								queueVST3ParameterChange(info.id, it.second);
 								break;
 							}
 						}
@@ -832,6 +855,17 @@ void VSTPluginInstance::writeToEffect(const std::wstring& chunkData, const std::
 		{
 			for (auto it : paramMap)
 			{
+				if (!it.first.empty() && it.first[0] == vst3ParamIdPrefix[0])
+				{
+					wchar_t* end = NULL;
+					ParamID id = static_cast<ParamID>(wcstoul(it.first.c_str() + 1, &end, 10));
+					if (end != it.first.c_str() + 1)
+					{
+						vst3Controller->setParamNormalized(id, it.second);
+						queueVST3ParameterChange(id, it.second);
+					}
+					continue;
+				}
 				for (int32 i = 0; i < vst3Controller->getParameterCount(); i++)
 				{
 					ParameterInfo info;
@@ -839,6 +873,7 @@ void VSTPluginInstance::writeToEffect(const std::wstring& chunkData, const std::
 						&& it.first == wstring((wchar_t*)info.title))
 					{
 						vst3Controller->setParamNormalized(info.id, it.second);
+						queueVST3ParameterChange(info.id, it.second);
 						break;
 					}
 				}
@@ -928,7 +963,10 @@ void VSTPluginInstance::readFromEffect(std::wstring& chunkData, std::unordered_m
 			{
 				ParameterInfo info;
 				if (vst3Controller->getParameterInfo(i, info) == kResultOk)
+				{
 					paramMap[wstring((wchar_t*)info.title)] = (float)vst3Controller->getParamNormalized(info.id);
+					paramMap[wstring(vst3ParamIdPrefix) + to_wstring(info.id)] = (float)vst3Controller->getParamNormalized(info.id);
+				}
 			}
 		}
 
@@ -1026,7 +1064,18 @@ void VSTPluginInstance::processReplacing(float** inputArray, float** outputArray
 		data.numOutputs = vst3OutputBusCount > 0 ? 1 : 0;
 		data.inputs = data.numInputs > 0 ? &inputBuffers : NULL;
 		data.outputs = data.numOutputs > 0 ? &outputBuffers : NULL;
-		data.inputParameterChanges = &emptyVST3ParameterChanges;
+		ParameterChanges inputChanges(static_cast<int32>(pendingVST3ParameterChanges.size()));
+		for (const auto& change : pendingVST3ParameterChanges)
+		{
+			int32 queueIndex = -1;
+			IParamValueQueue* queue = inputChanges.addParameterData(change.first, queueIndex);
+			if (queue != NULL)
+			{
+				int32 pointIndex = -1;
+				queue->addPoint(0, change.second, pointIndex);
+			}
+		}
+		data.inputParameterChanges = pendingVST3ParameterChanges.empty() ? static_cast<IParameterChanges*>(&emptyVST3ParameterChanges) : static_cast<IParameterChanges*>(&inputChanges);
 		data.inputEvents = &emptyVST3EventList;
 		data.processContext = &vst3ProcessContext;
 		vst3ProcessContext.state = ProcessContext::kPlaying | ProcessContext::kContTimeValid;
@@ -1035,6 +1084,7 @@ void VSTPluginInstance::processReplacing(float** inputArray, float** outputArray
 		vst3ProcessContext.continousTimeSamples = vst3SamplePosition;
 		if (vst3Processor->process(data) == kResultOk)
 			vst3SamplePosition += frameCount;
+		pendingVST3ParameterChanges.clear();
 		return;
 	}
 
@@ -1064,7 +1114,18 @@ void VSTPluginInstance::processDoubleReplacing(double** inputArray, double** out
 		data.numOutputs = vst3OutputBusCount > 0 ? 1 : 0;
 		data.inputs = data.numInputs > 0 ? &inputBuffers : NULL;
 		data.outputs = data.numOutputs > 0 ? &outputBuffers : NULL;
-		data.inputParameterChanges = &emptyVST3ParameterChanges;
+		ParameterChanges inputChanges(static_cast<int32>(pendingVST3ParameterChanges.size()));
+		for (const auto& change : pendingVST3ParameterChanges)
+		{
+			int32 queueIndex = -1;
+			IParamValueQueue* queue = inputChanges.addParameterData(change.first, queueIndex);
+			if (queue != NULL)
+			{
+				int32 pointIndex = -1;
+				queue->addPoint(0, change.second, pointIndex);
+			}
+		}
+		data.inputParameterChanges = pendingVST3ParameterChanges.empty() ? static_cast<IParameterChanges*>(&emptyVST3ParameterChanges) : static_cast<IParameterChanges*>(&inputChanges);
 		data.inputEvents = &emptyVST3EventList;
 		data.processContext = &vst3ProcessContext;
 		vst3ProcessContext.state = ProcessContext::kPlaying | ProcessContext::kContTimeValid;
@@ -1073,6 +1134,7 @@ void VSTPluginInstance::processDoubleReplacing(double** inputArray, double** out
 		vst3ProcessContext.continousTimeSamples = vst3SamplePosition;
 		if (vst3Processor->process(data) == kResultOk)
 			vst3SamplePosition += frameCount;
+		pendingVST3ParameterChanges.clear();
 		return;
 	}
 
@@ -1118,6 +1180,19 @@ void VSTPluginInstance::stopProcessing()
 
 	effect->control(effect, VST_EFFECT_OPCODE_PROCESS_END, 0, 0, NULL, 0.0f);
 	effect->control(effect, VST_EFFECT_OPCODE_SUSPEND, 0, 0, NULL, 0.0f);
+}
+
+void VSTPluginInstance::queueVST3ParameterChange(ParamID id, ParamValue value)
+{
+	for (auto& change : pendingVST3ParameterChanges)
+	{
+		if (change.first == id)
+		{
+			change.second = value;
+			return;
+		}
+	}
+	pendingVST3ParameterChanges.push_back(make_pair(id, value));
 }
 
 bool VSTPluginInstance::startEditing(HWND hWnd, short* width, short* height)

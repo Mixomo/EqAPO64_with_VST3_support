@@ -30,6 +30,18 @@ if (!(Test-Path $vsDevCmd)) {
 	throw "Visual Studio 2022 $VisualStudioEdition VsDevCmd.bat not found: $vsDevCmd"
 }
 
+$windowsKitInclude = Join-Path ${env:ProgramFiles(x86)} "Windows Kits\10\Include"
+$windowsSdkVersion = ""
+if (Test-Path -LiteralPath $windowsKitInclude) {
+	$windowsSdkVersion = Get-ChildItem -LiteralPath $windowsKitInclude -Directory |
+		Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName "um\Windows.h") } |
+		Sort-Object Name -Descending |
+		Select-Object -First 1 -ExpandProperty Name
+}
+if ($windowsSdkVersion -eq "") {
+	throw "Windows 10 SDK was not found under $windowsKitInclude"
+}
+
 # Avoid duplicate PATH/Path process variables confusing MSBuild's CL task.
 [Environment]::SetEnvironmentVariable("PATH", $null, "Process")
 $systemRoot = $env:SystemRoot
@@ -46,6 +58,7 @@ $props = @(
 	"/p:MUPARSERX_INCLUDE=$($paths.MUPARSERX_INCLUDE)",
 	"/p:MUPARSERX_LIB=$($paths.MUPARSERX_LIB)",
 	"/p:TCLAP_ROOT=$($paths.TCLAP_ROOT)",
+	"/p:WindowsTargetPlatformVersion=$windowsSdkVersion",
 	"/m"
 )
 
@@ -57,7 +70,7 @@ $commands = @(
 	"msbuild VoicemeeterClient\VoicemeeterClient.vcxproj $($props -join ' ')"
 )
 
-$cmd = "call `"$vsDevCmd`" && " + ($commands -join " && ")
+$cmd = "set WindowsTargetPlatformVersion=$windowsSdkVersion && set WindowsSDKVersion=$windowsSdkVersion\ && call `"$vsDevCmd`" -winsdk=$windowsSdkVersion && " + ($commands -join " && ")
 Push-Location $root
 try {
 	cmd /c $cmd

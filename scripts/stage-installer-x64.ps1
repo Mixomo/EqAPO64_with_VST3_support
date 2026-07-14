@@ -169,4 +169,19 @@ foreach ($plugin in $pluginFiles) {
 	Copy-Item -LiteralPath $src -Destination $dest -Force
 }
 
+$headphoneCalSrc = Join-Path $root "resources\HeadphoneCalibrations"
+if (!(Test-Path -LiteralPath (Join-Path $headphoneCalSrc "ash_hpcf_catalog.json"))) {
+	throw "Bundled headphone calibration catalog not found: $headphoneCalSrc"
+}
+$headphoneCalDest = Join-Path $libDir "HeadphoneCalibrations"
+New-Item -ItemType Directory -Force -Path $headphoneCalDest | Out-Null
+Copy-Item -LiteralPath (Join-Path $headphoneCalSrc "ash_hpcf_catalog.json") -Destination $headphoneCalDest -Force
+
+$irSrc = Join-Path $root "IRs"
+if (Test-Path -LiteralPath $irSrc) {
+	$irDest = Join-Path $libDir "IRs"
+	New-Item -ItemType Directory -Force -Path $irDest | Out-Null
+	Copy-Item -Path (Join-Path $irSrc "*") -Destination $irDest -Recurse -Force
+}
+
 Write-Host "Installer staging is ready: $outDir and $libDir."

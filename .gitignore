@@ -185,6 +185,8 @@ ClientBin/
 *.publishsettings
 node_modules/
 .codex-tools/
+__pycache__/
+*.py[cod]
 _deps/
 _build/
 complementary context/
@@ -201,7 +203,6 @@ third_party/**/install/
 third_party/downloads/
 third_party/packages/
 Setup/*.exe
-!Setup/EqualizerAPO-x64-1.4.2.exe
 Setup/lib32/
 Setup/lib64/
 Setup/libARM64/
@@ -265,3 +266,6 @@ paket-files/
 # JetBrains Rider
 .idea/
 *.sln.iml
+
+# Playground files
+playground/

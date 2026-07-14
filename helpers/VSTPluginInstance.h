@@ -22,6 +22,7 @@
 #include <string>
 #include <memory>
 #include <functional>
+#include <vector>
 #include "aeffectx.h"
 #include "pluginterfaces/base/ibstream.h"
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
@@ -38,7 +39,7 @@ class VSTPluginLibrary;
 class VSTPluginInstance
 {
 public:
-	VSTPluginInstance(const std::shared_ptr<VSTPluginLibrary>& library, int processLevel);
+	VSTPluginInstance(const std::shared_ptr<VSTPluginLibrary>& library, int processLevel, int vst3ClassIndex = 0);
 	~VSTPluginInstance();
 
 	bool initialize();
@@ -88,6 +89,7 @@ private:
 	void releaseVST3();
 	void configureVST3Buses(int requestedChannelCount);
 	Steinberg::Vst::SpeakerArrangement speakerArrangementForChannelCount(int count) const;
+	void queueVST3ParameterChange(Steinberg::Vst::ParamID id, Steinberg::Vst::ParamValue value);
 
 	std::shared_ptr<VSTPluginLibrary> library;
 	vst_effect_t* effect = NULL;
@@ -108,10 +110,12 @@ private:
 	bool vst3Processing = false;
 	Steinberg::Vst::ProcessContext vst3ProcessContext = {};
 	Steinberg::Vst::TSamples vst3SamplePosition = 0;
+	std::vector<std::pair<Steinberg::Vst::ParamID, Steinberg::Vst::ParamValue>> pendingVST3ParameterChanges;
 	std::function<void()> automateFunc;
 	std::function<void(int, int)> sizeWindowFunc;
 	float sampleRate = 0.0f;
 	int usedChannelCount = -1;
 	int processLevel = 0;
 	int language = 1;
+	int vst3ClassIndex = 0;
 };

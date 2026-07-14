@@ -26,7 +26,7 @@
 class VSTPluginFilter : public IFilter
 {
 public:
-	VSTPluginFilter(std::shared_ptr<VSTPluginLibrary> library, std::wstring chunkData, std::unordered_map<std::wstring, float> paramMap);
+	VSTPluginFilter(std::shared_ptr<VSTPluginLibrary> library, std::wstring chunkData, std::unordered_map<std::wstring, float> paramMap, int vst3ClassIndex = 0);
 	~VSTPluginFilter();
 
 	bool getInPlace() override {return false;}
@@ -37,6 +37,7 @@ public:
 	std::shared_ptr<VSTPluginLibrary> getLibrary() const;
 	std::wstring getChunkData() const;
 	std::unordered_map<std::wstring, float> getParamMap() const;
+	int getVST3ClassIndex() const;
 
 private:
 	void cleanup();
@@ -45,6 +46,7 @@ private:
 	std::wstring libPath;
 	std::wstring chunkData;
 	std::unordered_map<std::wstring, float> paramMap;
+	int vst3ClassIndex = 0;
 	size_t channelCount;
 	unsigned effectChannelCount;
 	size_t effectCount = 0;

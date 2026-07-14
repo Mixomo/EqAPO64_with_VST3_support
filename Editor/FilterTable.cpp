@@ -50,11 +50,13 @@
 #include "guis/StageFilterGUIFactory.h"
 #include "guis/PreampFilterGUIFactory.h"
 #include "guis/BiQuadFilterGUIFactory.h"
+#include "guis/ParametricEQFilterGUIFactory.h"
 #include "guis/CopyFilterGUIFactory.h"
 #include "guis/DelayFilterGUIFactory.h"
 #include "guis/IncludeFilterGUIFactory.h"
 #include "guis/GraphicEQFilterGUIFactory.h"
 #include "guis/ConvolutionFilterGUIFactory.h"
+#include "guis/HeadphoneCalibrationFilterGUIFactory.h"
 #include "guis/VSTPluginFilterGUIFactory.h"
 #include "guis/LoudnessCorrectionFilterGUIFactory.h"
 #include "guis/AudioToolFilterGUIFactory.h"
@@ -93,7 +95,9 @@ FilterTable::FilterTable(MainWindow* mainWindow, QWidget* parent)
 	factories.append(new ReverbFilterGUIFactory);
 	factories.append(new ToneGeneratorFilterGUIFactory);
 	factories.append(new VUMeterFilterGUIFactory);
+	factories.append(new HeadphoneCalibrationFilterGUIFactory);
 	factories.append(new GraphicEQFilterGUIFactory);
+	factories.append(new ParametricEQFilterGUIFactory);
 	factories.append(new ConvolutionFilterGUIFactory);
 	factories.append(new VSTPluginFilterGUIFactory);
 	factories.append(new LoudnessCorrectionFilterGUIFactory);
@@ -167,6 +171,7 @@ void FilterTable::updateGuis()
 		factory->startOfFile(configPath);
 
 	int row = 0;
+	int minimumContentHeight = 0;
 	for (Item* item : items)
 	{
 		QString line = item->text;
@@ -212,6 +217,11 @@ void FilterTable::updateGuis()
 			connect(gui, SIGNAL(updateChannels()), this, SLOT(updateChannels()));
 		}
 
+		const int rowHeight = rowWidget->minimumSizeHint().height();
+		rowWidget->setMinimumHeight(rowHeight);
+		gridLayout->setRowMinimumHeight(row, rowHeight);
+		gridLayout->setRowStretch(row, 0);
+		minimumContentHeight += rowHeight;
 		row++;
 	}
 
@@ -233,11 +243,13 @@ void FilterTable::updateGuis()
 	toolBar->addAction(addAction);
 
 	gridLayout->addWidget(toolBar, row++, 0, 1, 1, Qt::AlignLeft | Qt::AlignTop);
+	minimumContentHeight += toolBar->sizeHint().height();
 
 	QSpacerItem* spacerItem = new QSpacerItem(0, 0, QSizePolicy::Minimum, QSizePolicy::Expanding);
 	gridLayout->addItem(spacerItem, row, 0);
 
 	gridLayout->setRowStretch(row, 1);
+	setMinimumHeight(minimumContentHeight);
 
 	disableWheelForWidgets();
 

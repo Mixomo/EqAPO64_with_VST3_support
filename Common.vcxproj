@@ -30,7 +30,7 @@
     <ProjectGuid>{6758B50E-B9F0-4389-A61D-A842F0545E1B}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>Common</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.22621.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -311,6 +311,8 @@
     <ClInclude Include="filters\BiQuad.h" />
     <ClInclude Include="filters\BiQuadFilter.h" />
     <ClInclude Include="filters\BiQuadFilterFactory.h" />
+    <ClInclude Include="filters\ParametricEQFilter.h" />
+    <ClInclude Include="filters\ParametricEQFilterFactory.h" />
     <ClInclude Include="filters\ChannelFilter.h" />
     <ClInclude Include="filters\ChannelFilterFactory.h" />
     <ClInclude Include="filters\ConvolutionFilter.h" />
@@ -353,6 +355,8 @@
     <ClInclude Include="filters\VUMeterProtocol.h" />
     <ClInclude Include="filters\VUMeterFilter.h" />
     <ClInclude Include="filters\VUMeterFilterFactory.h" />
+    <ClInclude Include="filters\HeadphoneCalibrationFilter.h" />
+    <ClInclude Include="filters\HeadphoneCalibrationFilterFactory.h" />
     <ClInclude Include="filters\PreampFilter.h" />
     <ClInclude Include="filters\PreampFilterFactory.h" />
     <ClInclude Include="filters\StageFilterFactory.h" />
@@ -368,6 +372,7 @@
     <ClInclude Include="helpers\ScopeGuard.h" />
     <ClInclude Include="helpers\StringHelper.h" />
     <ClInclude Include="helpers\UncaughtExceptions.h" />
+    <ClInclude Include="helpers\VSTDiagnostics.h" />
     <ClInclude Include="helpers\VSTPluginInstance.h" />
     <ClInclude Include="helpers\VSTPluginLibrary.h" />
     <ClInclude Include="IFilter.h" />
@@ -390,6 +395,8 @@
     <ClCompile Include="filters\BiQuad.cpp" />
     <ClCompile Include="filters\BiQuadFilter.cpp" />
     <ClCompile Include="filters\BiQuadFilterFactory.cpp" />
+    <ClCompile Include="filters\ParametricEQFilter.cpp" />
+    <ClCompile Include="filters\ParametricEQFilterFactory.cpp" />
     <ClCompile Include="filters\ChannelFilter.cpp" />
     <ClCompile Include="filters\ChannelFilterFactory.cpp" />
     <ClCompile Include="filters\ConvolutionFilter.cpp" />
@@ -429,6 +436,8 @@
     <ClCompile Include="filters\ToneGeneratorFilterFactory.cpp" />
     <ClCompile Include="filters\VUMeterFilter.cpp" />
     <ClCompile Include="filters\VUMeterFilterFactory.cpp" />
+    <ClCompile Include="filters\HeadphoneCalibrationFilter.cpp" />
+    <ClCompile Include="filters\HeadphoneCalibrationFilterFactory.cpp" />
     <ClCompile Include="filters\PreampFilter.cpp" />
     <ClCompile Include="filters\PreampFilterFactory.cpp" />
     <ClCompile Include="filters\StageFilterFactory.cpp" />
@@ -441,8 +450,22 @@
     <ClCompile Include="helpers\RegistryHelper.cpp" />
     <ClCompile Include="helpers\StringHelper.cpp" />
     <ClCompile Include="helpers\VST3PluginIIDs.cpp" />
+    <ClCompile Include="helpers\VSTDiagnostics.cpp" />
     <ClCompile Include="helpers\VSTPluginInstance.cpp" />
     <ClCompile Include="helpers\VSTPluginLibrary.cpp" />
+    <ClCompile Include="third_party\vst3sdk\public.sdk\source\common\threadchecker_win32.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="third_party\vst3sdk\pluginterfaces\base\funknown.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="third_party\vst3sdk\public.sdk\source\vst\hosting\connectionproxy.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="third_party\vst3sdk\public.sdk\source\vst\hosting\parameterchanges.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="IFilter.cpp" />
     <ClCompile Include="libHybridConv-0.1.1\libHybridConv_eapo.cpp" />
     <ClCompile Include="parser\LogicalOperators.cpp" />

@@ -24,6 +24,7 @@
 #include <QFile>
 #include <QDir>
 #include <QTextStream>
+#include <algorithm>
 
 #include "Editor/helpers/GUIHelper.h"
 #include "FilterTableRow.h"
@@ -39,11 +40,17 @@ static void appendFilterRowDebugLog(const QString& message)
 	}
 }
 
+static int minimumFilterRowHeight()
+{
+	return GUIHelper::scale(150);
+}
+
 FilterTableRow::FilterTableRow(FilterTable* table, int number, FilterTable::Item* item, IFilterGUI* gui)
 	: QWidget(table),
 	ui(new Ui::FilterTableRow)
 {
 	ui->setupUi(this);
+	setMinimumHeight(minimumFilterRowHeight());
 	ui->labelNumber->setMinimumWidth(GUIHelper::scale(25));
 
 	this->table = table;
@@ -93,10 +100,26 @@ void FilterTableRow::editText()
 
 QSize FilterTableRow::sizeHint() const
 {
-	QSize size = QWidget::minimumSizeHint();
+	QSize size = QWidget::sizeHint().expandedTo(minimumSizeHint());
 	int preferredWidth = table->getPreferredWidth();
 	if (size.width() < preferredWidth)
 		size = QSize(preferredWidth, size.height());
+	return size;
+}
+
+QSize FilterTableRow::minimumSizeHint() const
+{
+	QSize size = QWidget::minimumSizeHint();
+	size.setHeight(std::max(size.height(), minimumFilterRowHeight()));
+	QWidget* current = ui->stackedWidget->currentWidget();
+	if (current != nullptr)
+	{
+		QSize childSize = current->minimumSizeHint().expandedTo(current->sizeHint()).expandedTo(current->minimumSize());
+		QMargins margins = ui->horizontalLayout->contentsMargins() + ui->stackedWidget->contentsMargins();
+		childSize.rheight() += margins.top() + margins.bottom() + GUIHelper::scale(10);
+		size.setHeight(std::max(size.height(), std::max(childSize.height(), ui->toolBar->maximumHeight() + GUIHelper::scale(10))));
+		size.setWidth(std::max(size.width(), childSize.width() + ui->labelNumber->minimumWidth() + ui->toolBar->sizeHint().width() + GUIHelper::scale(12)));
+	}
 	return size;
 }
 

@@ -30,7 +30,7 @@
     <ProjectGuid>{5AF4EE2B-CC80-4AE5-A786-86FACC0CC649}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>EqualizerAPO</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.22621.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">

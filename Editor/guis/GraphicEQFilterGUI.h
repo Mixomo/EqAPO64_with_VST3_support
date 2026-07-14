@@ -43,6 +43,8 @@ public:
 
 	void loadPreferences(const QVariantMap& prefs) override;
 	void storePreferences(QVariantMap& prefs) override;
+	QSize sizeHint() const override;
+	QSize minimumSizeHint() const override;
 
 private slots:
 	void insertRow(int index, double hz, double db);
@@ -67,6 +69,8 @@ private slots:
 
 private:
 	void setFreqEditable(bool editable);
+	void updatePreferredHeight();
+	int preferredHeight() const;
 	unsigned currentDeviceSampleRate() const;
 
 	Ui::GraphicEQFilterGUI* ui;

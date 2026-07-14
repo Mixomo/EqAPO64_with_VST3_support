@@ -48,6 +48,7 @@
 #include "filters/IfFilterFactory.h"
 #include "filters/ChannelFilterFactory.h"
 #include "filters/BiQuadFilterFactory.h"
+#include "filters/ParametricEQFilterFactory.h"
 #include "filters/IIRFilterFactory.h"
 #include "filters/PreampFilterFactory.h"
 #include "filters/OutputGuardFilterFactory.h"
@@ -57,6 +58,7 @@
 #include "filters/ReverbFilterFactory.h"
 #include "filters/ToneGeneratorFilterFactory.h"
 #include "filters/VUMeterFilterFactory.h"
+#include "filters/HeadphoneCalibrationFilterFactory.h"
 #include "filters/OutProcGainFilterFactory.h"
 #include "filters/OutProcBiquadFilterFactory.h"
 #include "filters/OutProcVSTPluginFilterFactory.h"
@@ -144,6 +146,7 @@ FilterEngine::FilterEngine()
 	factories.push_back(new ChannelFilterFactory());
 	factories.push_back(new IIRFilterFactory());
 	factories.push_back(new BiQuadFilterFactory());
+	factories.push_back(new ParametricEQFilterFactory());
 	factories.push_back(new PreampFilterFactory());
 	factories.push_back(new OutputGuardFilterFactory());
 	factories.push_back(new PanFilterFactory());
@@ -152,6 +155,7 @@ FilterEngine::FilterEngine()
 	factories.push_back(new ReverbFilterFactory());
 	factories.push_back(new ToneGeneratorFilterFactory());
 	factories.push_back(new VUMeterFilterFactory());
+	factories.push_back(new HeadphoneCalibrationFilterFactory());
 	factories.push_back(new OutProcGainFilterFactory());
 	factories.push_back(new OutProcBiquadFilterFactory());
 	factories.push_back(new OutProcVSTPluginFilterFactory());

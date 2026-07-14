@@ -19,9 +19,11 @@
 
 #include <algorithm>
 #include <vector>
+#include <QAbstractScrollArea>
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QScrollBar>
+#include <QSizePolicy>
 #include <QTextStream>
 #define ENABLE_SNDFILE_WINDOWS_PROTOTYPES 1
 #include <sndfile.h>
@@ -56,6 +58,8 @@ GraphicEQFilterGUI::GraphicEQFilterGUI(GraphicEQFilter* filter, QString configPa
 	ui->tableWidget->horizontalHeader()->setDefaultSectionSize(GUIHelper::scale(10));
 	ui->tableWidget->verticalHeader()->setMinimumSectionSize(GUIHelper::scale(23));
 	ui->tableWidget->verticalHeader()->setDefaultSectionSize(GUIHelper::scale(23));
+	ui->tableWidget->setSizeAdjustPolicy(QAbstractScrollArea::AdjustIgnored);
+	setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
 
 	scene = new GraphicEQFilterGUIScene(ui->graphicsView);
 	ui->graphicsView->setScene(scene);
@@ -68,6 +72,7 @@ GraphicEQFilterGUI::GraphicEQFilterGUI(GraphicEQFilter* filter, QString configPa
 			[this](QSize size) {
 		ui->tableWidget->setFixedWidth(10000 - size.width());
 		ui->graphicsView->setFixedHeight(size.height());
+		updatePreferredHeight();
 	}, ui->graphicsView);
 	ui->graphicsView->setCornerWidget(cornerWidget);
 
@@ -108,6 +113,7 @@ GraphicEQFilterGUI::GraphicEQFilterGUI(GraphicEQFilter* filter, QString configPa
 	}
 
 	ui->tableWidget->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+	updatePreferredHeight();
 }
 
 GraphicEQFilterGUI::~GraphicEQFilterGUI()
@@ -134,7 +140,8 @@ void GraphicEQFilterGUI::store(QString& command, QString& parameters)
 void GraphicEQFilterGUI::loadPreferences(const QVariantMap& prefs)
 {
 	ui->tableWidget->setFixedWidth(GUIHelper::scale(max(DEFAULT_TABLE_WIDTH, prefs.value("tableWidth", DEFAULT_TABLE_WIDTH).toDouble())));
-	ui->graphicsView->setFixedHeight(GUIHelper::scale(prefs.value("viewHeight", DEFAULT_VIEW_HEIGHT).toDouble()));
+	ui->graphicsView->setFixedHeight(GUIHelper::scale(DEFAULT_VIEW_HEIGHT));
+	updatePreferredHeight();
 	double zoomX = GUIHelper::scaleZoom(prefs.value("zoomX", 1.0).toDouble());
 	double zoomY = GUIHelper::scaleZoom(prefs.value("zoomY", 1.0).toDouble());
 	scene->setZoom(zoomX, zoomY);
@@ -152,8 +159,6 @@ void GraphicEQFilterGUI::storePreferences(QVariantMap& prefs)
 {
 	if (GUIHelper::invScale(ui->tableWidget->width()) != DEFAULT_TABLE_WIDTH)
 		prefs.insert("tableWidth", GUIHelper::invScale(ui->tableWidget->width()));
-	if (GUIHelper::invScale(ui->graphicsView->height()) != DEFAULT_VIEW_HEIGHT)
-		prefs.insert("viewHeight", GUIHelper::invScale(ui->graphicsView->height()));
 	if (GUIHelper::invScaleZoom(scene->getZoomX()) != 1.0)
 		prefs.insert("zoomX", GUIHelper::invScaleZoom(scene->getZoomX()));
 	if (GUIHelper::invScaleZoom(scene->getZoomY()) != 1.0)
@@ -166,6 +171,34 @@ void GraphicEQFilterGUI::storePreferences(QVariantMap& prefs)
 	value = vScrollBar->value();
 	if (value != round(scene->dbToY(22)))
 		prefs.insert("scrollY", GUIHelper::invScale(value));
+}
+
+QSize GraphicEQFilterGUI::sizeHint() const
+{
+	QSize size = QWidget::sizeHint();
+	size.setHeight(preferredHeight());
+	return size;
+}
+
+QSize GraphicEQFilterGUI::minimumSizeHint() const
+{
+	QSize size = QWidget::minimumSizeHint();
+	size.setHeight(preferredHeight());
+	return size;
+}
+
+int GraphicEQFilterGUI::preferredHeight() const
+{
+	return std::max(ui->graphicsView->height(), ui->graphicsView->minimumHeight())
+		+ ui->toolBar->sizeHint().height()
+		+ GUIHelper::scale(18);
+}
+
+void GraphicEQFilterGUI::updatePreferredHeight()
+{
+	const int height = preferredHeight();
+	setFixedHeight(height);
+	updateGeometry();
 }
 
 void GraphicEQFilterGUI::insertRow(int index, double hz, double db)

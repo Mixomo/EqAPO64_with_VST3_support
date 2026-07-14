@@ -65,6 +65,7 @@ IFilterGUI* VSTPluginFilterGUIFactory::createFilterGUI(QString& command, QString
 			std::wstring libPath;
 			std::wstring chunkData;
 			QString hostId;
+			int vst3ClassIndex = 0;
 			std::unordered_map<std::wstring, float> paramMap;
 			std::vector<std::wstring> parts = StringHelper::splitQuoted(parameters.toStdWString(), ' ');
 			for (unsigned i = 0; i + 1 < parts.size(); i += 2)
@@ -77,6 +78,8 @@ IFilterGUI* VSTPluginFilterGUIFactory::createFilterGUI(QString& command, QString
 					chunkData = value;
 				else if (key == L"HostId")
 					hostId = QString::fromStdWString(value);
+				else if (key == L"ClassIndex")
+					vst3ClassIndex = _wtoi(value.c_str());
 				else if (key == L"Engine")
 				{
 					// Compatibility token for experimental lines.
@@ -87,7 +90,7 @@ IFilterGUI* VSTPluginFilterGUIFactory::createFilterGUI(QString& command, QString
 					paramMap[key] = f;
 				}
 			}
-			result = new VSTPluginFilterGUI(VSTPluginLibrary::getInstance(libPath), chunkData, paramMap, true, hostId);
+			result = new VSTPluginFilterGUI(VSTPluginLibrary::getInstance(libPath), chunkData, paramMap, true, hostId, vst3ClassIndex);
 		}
 		else
 		{
@@ -98,7 +101,7 @@ IFilterGUI* VSTPluginFilterGUIFactory::createFilterGUI(QString& command, QString
 			if (!filters.empty())
 			{
 				VSTPluginFilter* filter = (VSTPluginFilter*)filters[0];
-				result = new VSTPluginFilterGUI(filter->getLibrary(), filter->getChunkData(), filter->getParamMap());
+				result = new VSTPluginFilterGUI(filter->getLibrary(), filter->getChunkData(), filter->getParamMap(), false, QString(), filter->getVST3ClassIndex());
 			}
 			else
 			{

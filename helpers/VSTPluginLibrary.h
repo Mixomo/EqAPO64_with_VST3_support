@@ -22,6 +22,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <vector>
 #include "AbstractLibrary.h"
 #include "aeffectx.h"
 #include "pluginterfaces/base/ipluginbase.h"
@@ -43,7 +44,8 @@ public:
 	typedef Steinberg::IPluginFactory* (PLUGIN_API* getPluginFactoryFunc)();
 	getPluginFactoryFunc GetPluginFactory;
 	Steinberg::IPluginFactory* getFactory() const;
-	const Steinberg::PClassInfo& getVST3ClassInfo() const;
+	const Steinberg::PClassInfo& getVST3ClassInfo(int index = 0) const;
+	int getVST3ClassCount() const;
 
 protected:
 	bool loadFunctions() override;
@@ -59,4 +61,5 @@ private:
 	bool vst3 = false;
 	Steinberg::IPluginFactory* factory = NULL;
 	Steinberg::PClassInfo vst3ClassInfo;
+	std::vector<Steinberg::PClassInfo> vst3ClassInfos;
 };

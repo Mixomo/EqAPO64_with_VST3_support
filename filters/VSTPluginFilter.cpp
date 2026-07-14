@@ -25,8 +25,8 @@
 
 using namespace std;
 
-VSTPluginFilter::VSTPluginFilter(std::shared_ptr<VSTPluginLibrary> library, std::wstring chunkData, std::unordered_map<std::wstring, float> paramMap)
-	: library(library), chunkData(chunkData), paramMap(paramMap)
+VSTPluginFilter::VSTPluginFilter(std::shared_ptr<VSTPluginLibrary> library, std::wstring chunkData, std::unordered_map<std::wstring, float> paramMap, int vst3ClassIndex)
+	: library(library), chunkData(chunkData), paramMap(paramMap), vst3ClassIndex(vst3ClassIndex)
 {
 	libPath = library->getLibPath();
 }
@@ -48,7 +48,7 @@ std::vector<std::wstring> VSTPluginFilter::initialize(float sampleRate, unsigned
 	skipProcessing = false;
 
 	void* mem = MemoryHelper::alloc(sizeof(VSTPluginInstance));
-	VSTPluginInstance* firstEffect = new(mem) VSTPluginInstance(library, 2);
+	VSTPluginInstance* firstEffect = new(mem) VSTPluginInstance(library, 2, vst3ClassIndex);
 	if (!firstEffect->initialize())
 	{
 		LogF(L"The VST plugin %s crashed during initialization.", libPath.c_str());
@@ -69,7 +69,7 @@ std::vector<std::wstring> VSTPluginFilter::initialize(float sampleRate, unsigned
 	for (unsigned i = 1; i < effectCount; i++)
 	{
 		mem = MemoryHelper::alloc(sizeof(VSTPluginInstance));
-		effects[i] = new(mem) VSTPluginInstance(library, 2);
+		effects[i] = new(mem) VSTPluginInstance(library, 2, vst3ClassIndex);
 		if (!effects[i]->initialize() && !skipProcessing)
 		{
 			LogF(L"The VST plugin %s crashed during initialization.", libPath.c_str());
@@ -312,6 +312,11 @@ std::wstring VSTPluginFilter::getChunkData() const
 std::unordered_map<std::wstring, float> VSTPluginFilter::getParamMap() const
 {
 	return paramMap;
+}
+
+int VSTPluginFilter::getVST3ClassIndex() const
+{
+	return vst3ClassIndex;
 }
 
 void VSTPluginFilter::cleanup()
