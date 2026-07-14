@@ -33,8 +33,8 @@ NOTE: This build was compiled for Windows 10/11 64 bits with AVX2 support only (
 - Full Headphone Calibration module with uses a bundled ASH catalog generated from the
   [ASH-Toolset](https://github.com/ShanonPearce/ASH-Toolset) project by Shanon
   Pearce.
-- Bundled various Free Impulse Responses inside the Convolution module. (Credits to Greg Hopkins
-  (Hopkins Media Services) and [Aleksey Vaneev](https://github.com/avaneev) from [Voxengo](https://www.voxengo.com/)).
+- Bundled various Free Impulse Responses inside the Convolution module. [Credits to Greg Hopkins
+  (Hopkins Media Services) and [Aleksey Vaneev](https://github.com/avaneev) from [Voxengo](https://www.voxengo.com/)].
 
 - Configuration Editor workflow preserved.
 - Reproducible installer build using local dependencies under `third_party/`.
@@ -102,7 +102,7 @@ diagnostics.
 - Keeps automatic sample-rate matching and normalization focused on making
   loaded FIR files safer to use.
 - Bundled IRs are free to use, but their copyright belongs to Greg Hopkins
-  (Hopkins Media Services) and [Aleksey Vaneev](https://github.com/avaneev) from ([Voxengo](https://www.voxengo.com/)).
+  (Hopkins Media Services) and [Aleksey Vaneev](https://github.com/avaneev) from [Voxengo](https://www.voxengo.com/).
 
 ### VST Plug-in Handling
 
