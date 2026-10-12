@@ -179,9 +179,8 @@ For normal users, install from the [GitHub Releases page](../../releases):
 1. Download the installer.exe.
 2. Run the installer and choose the optional components.
 3. Choose the playback or capture devices that should use Equalizer APO.
-4. Reboot Windows if the installer or Device Selector asks for it.
-5. Open Configuration Editor and add filters as usual.
-6. To use a plug-in, add a VST plug-in filter and select either a VST2 `.dll`
+4. Open Configuration Editor and add filters as usual.
+5. To use a plug-in, add a VST plug-in filter and select either a VST2 `.dll`
    or a VST3 `.vst3` bundle. VST audio and panels use the signed-in Windows account.
 
 ### Option B - Install From SourceForge
