@@ -1,0 +1,20 @@
+{
+  "plugins": [
+    {
+      "path": "<ABSOLUTE_PATH_TO_VST2_DLL>",
+      "required_checks": [
+        "load",
+        "process",
+        "state"
+      ]
+    },
+    {
+      "path": "<ABSOLUTE_PATH_TO_VST3_BINARY>",
+      "required_checks": [
+        "load",
+        "process",
+        "state"
+      ]
+    }
+  ]
+}

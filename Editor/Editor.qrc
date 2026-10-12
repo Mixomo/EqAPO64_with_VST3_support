@@ -1,0 +1,38 @@
+<RCC>
+    <qresource prefix="/">
+        <file>translations/Editor_de.qm</file>
+        <file>translations/qtbase_de.qm</file>
+        <file>icons/document-open.svg</file>
+        <file>icons/document-save.svg</file>
+        <file>icons/accessories-text-editor.svg</file>
+        <file>icons/applications-graphics-rotated.svg</file>
+        <file>icons/document-new.svg</file>
+        <file>icons/document-save-as.svg</file>
+        <file>icons/edit-copy.svg</file>
+        <file>icons/edit-cut.svg</file>
+        <file>icons/edit-delete.svg</file>
+        <file>icons/edit-paste.svg</file>
+        <file>icons/format-justify-fill-rotated.ico</file>
+        <file>icons/go-up.svg</file>
+        <file>icons/list-add-green.svg</file>
+        <file>icons/list-remove-red.svg</file>
+        <file>icons/arrow_right.ico</file>
+        <file>icons/resize_corner.ico</file>
+        <file>sounds/pinkNoise.flac</file>
+        <file>icons/edit-select-all.svg</file>
+        <file>icons/power_off.svg</file>
+        <file>icons/power_on.svg</file>
+        <file>icons/dark-mode/invert_response.svg</file>
+        <file>icons/dark-mode/normalize_response.svg</file>
+        <file>icons/dark-mode/reset_response.svg</file>
+        <file>icons/invert_response.svg</file>
+        <file>icons/normalize_response.svg</file>
+        <file>icons/reset_response.svg</file>
+        <file>icons/dark-mode/toolbar-ext-h.svg</file>
+        <file>icons/dark-mode/toolbar-ext-v.svg</file>
+        <file>translations/Editor_zh_CN.qm</file>
+        <file>translations/qtbase_zh_CN.qm</file>
+        <file>translations/Editor_fr.qm</file>
+        <file>translations/qtbase_fr.qm</file>
+    </qresource>
+</RCC>

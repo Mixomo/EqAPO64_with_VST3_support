@@ -1,0 +1,6 @@
+{
+  "name": "example-effect",
+  "line": "VSTPlugin: Library \"<ABSOLUTE_PLUGIN_BINARY>\" #<GAIN_PARAMETER_ID> 0.25",
+  "sid": "<WINDOWS_USER_SID>",
+  "expected_gain": 0.25
+}

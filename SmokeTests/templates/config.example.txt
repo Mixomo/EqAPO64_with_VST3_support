@@ -1,0 +1,4 @@
+# Neutral example. Replace placeholders before loading it in an editor.
+# Each plugin starts in bypass; state must be saved by the editor for that plugin.
+# VSTPlugin: Library "<ABSOLUTE_PATH_TO_VST2_DLL>"
+# VSTPlugin: Library "<ABSOLUTE_PATH_TO_VST3_BINARY>"

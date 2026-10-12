@@ -1,0 +1,10 @@
+{
+  "installed_root": "<EQUALIZER_APO_INSTALL_DIRECTORY>",
+  "config_path": "<EXPLICIT_TEST_CONFIG_PATH>",
+  "render_device": "<PLAYBACK_DEVICE_INDEX>",
+  "loopback_device": "<LOOPBACK_INPUT_INDEX>",
+  "plugin_path": "<ABSOLUTE_PLUGIN_PATH>",
+  "output_directory": "<PROJECT_ROOT>/output/live-audio/<RUN_NAME>",
+  "smoke_seconds": 60,
+  "note": "Preparation reference for run-live-smoke.ps1; pass these values as command-line arguments and prepare the case JSON files separately. Device indices come from python -m sounddevice. The normal run-smoke.ps1 launcher does not modify an installed configuration."
+}

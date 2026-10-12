@@ -1,0 +1,38 @@
+{
+  "cases": [
+    {
+      "name": "example-plugin",
+      "path": "<ABSOLUTE_PLUGIN_BINARY>",
+      "parameter_id": "<PARAMETER_ID>",
+      "before": 1,
+      "after": 0.25,
+      "expected_ratio": 0.25,
+      "probe_arguments": [
+        "--baseline-set",
+        "<PARAMETER_KEY>",
+        "1",
+        "--edit-set",
+        "<PARAMETER_KEY>",
+        "0.25",
+        "--require-delta"
+      ],
+      "analysis_oracles": [
+        {
+          "name": "gain-change",
+          "parameters": "<PARAMETER_KEY> 0.25",
+          "expected_db": -12.0412
+        }
+      ],
+      "used_key": "<BAND_ENABLE_PARAMETER>",
+      "gain_key": "<GAIN_PARAMETER>",
+      "neutral_value": 0.5,
+      "gain_db_per_unit": "<PLUGIN_GAIN_RANGE_DB>",
+      "transitions": [
+        [
+          0.6,
+          0.4
+        ]
+      ]
+    }
+  ]
+}

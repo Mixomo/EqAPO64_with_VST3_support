@@ -1,0 +1,13 @@
+
+Qt Tools:
+  Qt Assistant ........................... yes
+  libclang found ......................... yes
+  Qt Widgets Designer .................... yes
+  Qt Distance Field Generator ............ yes
+  Qt Linguist ............................ yes
+  pixeltool .............................. yes
+  qdbus .................................. yes
+  QDoc ................................... yes
+  Qt Attributions Scanner ................ yes
+  qtdiag ................................. yes
+  qtplugininfo ........................... yes

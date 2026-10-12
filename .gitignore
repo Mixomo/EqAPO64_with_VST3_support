@@ -1,0 +1,61 @@
+# Local editor and machine settings
+/.vs/
+/.vscode/
+*.user
+*.suo
+*.VC.db
+*.VC.VC.opendb
+
+# Generated application, installer and smoke outputs
+/_build/
+/output/
+/x64/
+/Debug/
+/Release/
+/Common/Debug/
+/Common/Release/
+/Common/x64/
+/Benchmark/Debug/
+/Benchmark/Release/
+/Benchmark/x64/
+/DeviceSelector/Debug/
+/DeviceSelector/Release/
+/DeviceSelector/x64/
+/Editor/Debug/
+/Editor/Release/
+/Editor/x64/
+/EqApoOutProcHost/Debug/
+/EqApoOutProcHost/Release/
+/EqApoOutProcHost/x64/
+/EqualizerAPO/Debug/
+/EqualizerAPO/Release/
+/EqualizerAPO/x64/
+/VoicemeeterClient/Debug/
+/VoicemeeterClient/Release/
+/VoicemeeterClient/x64/
+/Setup/lib64/
+/Setup/WideModern.exe
+/third_party/build/
+
+# Compiler and Python caches
+*.obj
+*.exp
+*.res
+*.pch
+*.pdb
+*.ilk
+*.idb
+*.iobj
+*.ipdb
+*.ipch
+*.tlog
+*.lastbuildstate
+**/__pycache__/
+*.py[cod]
+
+# Personal smoke settings; keep neutral example templates
+/SmokeTests/**/*.local.json
+/SmokeTests/**/*.local.txt
+
+# Keep dependency sources, SDKs, licenses and intentional bundled runtimes.
+# Do not blanket-ignore *.exe, *.dll, *.lib, bin/, Debug/ or Release/.

@@ -1,0 +1,11 @@
+x64-windows/
+x64-windows/share/
+x64-windows/share/vcpkg-msbuild/
+x64-windows/share/vcpkg-msbuild/copyright
+x64-windows/share/vcpkg-msbuild/vcpkg-port-config.cmake
+x64-windows/share/vcpkg-msbuild/vcpkg.spdx.json
+x64-windows/share/vcpkg-msbuild/vcpkg_abi_info.txt
+x64-windows/share/vcpkg-msbuild/vcpkg_msbuild.props.in
+x64-windows/share/vcpkg-msbuild/vcpkg_msbuild.targets.in
+x64-windows/share/vcpkg-msbuild/vcpkg_msbuild_install.cmake
+x64-windows/share/vcpkg-msbuild/z_vcpkg_msbuild_create_props.cmake

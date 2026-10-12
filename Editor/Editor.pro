@@ -1,0 +1,414 @@
+#-------------------------------------------------
+#
+# Project created by QtCreator 2014-10-21T22:44:17
+#
+#-------------------------------------------------
+
+QT       += core gui network
+
+greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
+
+TARGET = Editor
+TEMPLATE = app
+
+PRECOMPILED_HEADER = stable.h
+QMAKE_CXXFLAGS_WARN_ON -= -w34100
+QMAKE_LFLAGS += /STACK:32000000
+QMAKE_CXXFLAGS_RELEASE += /O2
+QMAKE_LFLAGS_RELEASE += /DEBUG /MAP
+
+DEFINES += _UNICODE
+DEFINES += MUP_USE_WIDE_STRING
+
+SOURCES += main.cpp\
+	../helpers/LogHelper.cpp \
+	../helpers/StringHelper.cpp \
+	../helpers/RegistryHelper.cpp \
+	../parser/LogicalOperators.cpp \
+	IFilterGUIFactory.cpp \
+	IFilterGUI.cpp \
+	guis/PreampFilterGUI.cpp \
+	guis/PreampFilterGUIFactory.cpp \
+	guis/CommentFilterGUIFactory.cpp \
+	guis/CommentFilterGUI.cpp \
+	FilterTable.cpp \
+	../filters/PreampFilter.cpp \
+	../filters/PreampFilterFactory.cpp \
+	../helpers/MemoryHelper.cpp \
+	FilterTableRow.cpp \
+	FilterTemplate.cpp \
+	guis/DeviceFilterGUI.cpp \
+	guis/DeviceFilterGUIFactory.cpp \
+	../DeviceAPOInfo.cpp \
+	guis/DeviceFilterGUIDialog.cpp \
+	../filters/DeviceFilterFactory.cpp \
+	guis/ChannelFilterGUIDialog.cpp \
+	guis/ChannelFilterGUI.cpp \
+	guis/ChannelFilterGUIFactory.cpp \
+	guis/BiQuadFilterGUI.cpp \
+	../filters/BiQuad.cpp \
+	../filters/BiQuadFilter.cpp \
+	../filters/BiQuadFilterFactory.cpp \
+	guis/BiQuadFilterGUIFactory.cpp \
+	../filters/ParametricEQFilter.cpp \
+	../filters/ParametricEQFilterFactory.cpp \
+	guis/ParametricEQFilterGUIFactory.cpp \
+	guis/CopyFilterGUIFactory.cpp \
+	guis/CopyFilterGUI.cpp \
+	guis/CopyFilterGUIConnectionItem.cpp \
+	guis/CopyFilterGUIChannelItem.cpp \
+	guis/AudioToolFilterGUIFactory.cpp \
+	guis/HeadphoneCalibrationFilterGUIFactory.cpp \
+	../filters/CopyFilter.cpp \
+	../filters/CopyFilterFactory.cpp \
+	../filters/PanFilter.cpp \
+	../filters/PanFilterFactory.cpp \
+	../filters/CrossfeedFilter.cpp \
+	../filters/CrossfeedFilterFactory.cpp \
+	../filters/ChorusFilter.cpp \
+	../filters/ChorusFilterFactory.cpp \
+	../filters/ReverbFilter.cpp \
+	../filters/ReverbFilterFactory.cpp \
+	../filters/ToneGeneratorFilter.cpp \
+	../filters/ToneGeneratorFilterFactory.cpp \
+	../filters/VUMeterFilter.cpp \
+	../filters/VUMeterFilterFactory.cpp \
+	../filters/HeadphoneCalibrationFilter.cpp \
+	../filters/HeadphoneCalibrationFilterFactory.cpp \
+	../IFilter.cpp \
+	guis/CopyFilterGUIScene.cpp \
+	guis/CopyFilterGUIForm.cpp \
+	guis/CopyFilterGUIRow.cpp \
+	helpers/GUIChannelHelper.cpp \
+	../helpers/ChannelHelper.cpp \
+	guis/DelayFilterGUI.cpp \
+	guis/DelayFilterGUIFactory.cpp \
+	../filters/DelayFilter.cpp \
+	../filters/DelayFilterFactory.cpp \
+	guis/IncludeFilterGUI.cpp \
+	guis/IncludeFilterGUIFactory.cpp \
+	helpers/GUIHelper.cpp \
+	widgets/ResizingLineEdit.cpp \
+	widgets/ChannelGraphScene.cpp \
+	widgets/ChannelGraphItem.cpp \
+	guis/ChannelFilterGUIScene.cpp \
+	guis/ChannelFilterGUIChannelItem.cpp \
+	guis/GraphicEQFilterGUIFactory.cpp \
+	guis/GraphicEQFilterGUI.cpp \
+	../filters/GraphicEQFilter.cpp \
+	../filters/GraphicEQFilterFactory.cpp \
+	../libHybridConv-0.1.1/libHybridConv_eapo.cpp \
+	../helpers/GainIterator.cpp \
+	guis/GraphicEQFilterGUIScene.cpp \
+	widgets/FrequencyPlotView.cpp \
+	widgets/FrequencyPlotHRuler.cpp \
+	widgets/FrequencyPlotVRuler.cpp \
+	widgets/FrequencyPlotItem.cpp \
+	guis/GraphicEQFilterGUIItem.cpp \
+	guis/GraphicEQFilterGUIView.cpp \
+	widgets/FrequencyPlotScene.cpp \
+	widgets/CompactToolBar.cpp \
+	guis/ConvolutionFilterGUIFactory.cpp \
+	guis/ConvolutionFilterGUI.cpp \
+	helpers/DisableWheelFilter.cpp \
+	widgets/EscapableLineEdit.cpp \
+	MainWindow.cpp \
+	guis/StageFilterGUI.cpp \
+	guis/StageFilterGUIFactory.cpp \
+	guis/ExpressionFilterGUIFactory.cpp \
+	widgets/ResizeCorner.cpp \
+	AnalysisPlotView.cpp \
+	AnalysisPlotScene.cpp \
+	../FilterEngine.cpp \
+	../FilterConfiguration.cpp \
+	../filters/ChannelFilterFactory.cpp \
+	../filters/ExpressionFilterFactory.cpp \
+	../filters/IfFilterFactory.cpp \
+	../filters/StageFilterFactory.cpp \
+	../filters/ConvolutionFilterFactory.cpp \
+	../filters/IIRFilter.cpp \
+	../filters/IIRFilterFactory.cpp \
+	../filters/IncludeFilterFactory.cpp \
+	../filters/ChannelFilter.cpp \
+	../filters/ConvolutionFilter.cpp \
+	../parser/RegexFunctions.cpp \
+	../parser/RegistryFunctions.cpp \
+	../parser/StringOperators.cpp \
+	AnalysisThread.cpp \
+	widgets/ExponentialSpinBox.cpp \
+	FilterTableMimeData.cpp \
+	CustomStyle.cpp \
+	../AbstractAPOInfo.cpp \
+	../VoicemeeterAPOInfo.cpp \
+	../helpers/AbstractLibrary.cpp \
+	../helpers/VSTDiagnostics.cpp \
+	../helpers/VST3PluginIIDs.cpp \
+	../helpers/VSTPluginLibrary.cpp \
+	guis/VSTPluginFilterGUI.cpp \
+	guis/VSTPluginFilterGUIFactory.cpp \
+	guis/VSTPluginFilterGUIDialog.cpp \
+	../filters/VSTPluginFilter.cpp \
+	../filters/VSTPluginFilterFactory.cpp \
+	../helpers/VSTPluginInstance.cpp \
+	guis/LoudnessCorrectionFilterGUI.cpp \
+	guis/LoudnessCorrectionFilterGUIFactory.cpp \
+	../filters/loudnessCorrection/LoudnessCorrectionFilter.cpp \
+	../filters/loudnessCorrection/LoudnessCorrectionFilterFactory.cpp \
+	../filters/loudnessCorrection/VolumeController.cpp \
+	guis/LoudnessCorrectionFilterGUIDialog.cpp \
+	helpers/QtSndfileHandle.cpp \
+	widgets/MiddleClickTabWidget.cpp \
+	widgets/MiddleClickTabBar.cpp
+
+HEADERS  += \
+	../helpers/LogHelper.h \
+	../helpers/StringHelper.h \
+	../helpers/RegistryHelper.h \
+	../parser/LogicalOperators.h \
+	IFilterGUIFactory.h \
+	helpers/GUIHelper.h \
+	stable.h \
+	IFilterGUI.h \
+	guis/PreampFilterGUI.h \
+	guis/PreampFilterGUIFactory.h \
+	guis/CommentFilterGUIFactory.h \
+	guis/CommentFilterGUI.h \
+	FilterTable.h \
+	../filters/PreampFilter.h \
+	../filters/PreampFilterFactory.h \
+	../helpers/MemoryHelper.h \
+	FilterTableRow.h \
+	FilterTemplate.h \
+	guis/DeviceFilterGUI.h \
+	guis/DeviceFilterGUIFactory.h \
+	../DeviceAPOInfo.h \
+	guis/DeviceFilterGUIDialog.h \
+	../filters/DeviceFilterFactory.h \
+	guis/ChannelFilterGUIDialog.h \
+	guis/ChannelFilterGUI.h \
+	guis/ChannelFilterGUIFactory.h \
+	guis/BiQuadFilterGUI.h \
+	../filters/BiQuad.h \
+	../filters/BiQuadFilter.h \
+	../filters/BiQuadFilterFactory.h \
+	guis/BiQuadFilterGUIFactory.h \
+	../filters/ParametricEQFilter.h \
+	../filters/ParametricEQFilterFactory.h \
+	guis/ParametricEQFilterGUIFactory.h \
+	guis/CopyFilterGUIFactory.h \
+	guis/CopyFilterGUI.h \
+	guis/CopyFilterGUIConnectionItem.h \
+	guis/CopyFilterGUIChannelItem.h \
+	guis/AudioToolFilterGUIFactory.h \
+	guis/HeadphoneCalibrationFilterGUIFactory.h \
+	../filters/CopyFilter.h \
+	../filters/CopyFilterFactory.h \
+	../filters/AudioToolsHelper.h \
+	../filters/PanFilter.h \
+	../filters/PanFilterFactory.h \
+	../filters/CrossfeedFilter.h \
+	../filters/CrossfeedFilterFactory.h \
+	../filters/ChorusFilter.h \
+	../filters/ChorusFilterFactory.h \
+	../filters/ReverbFilter.h \
+	../filters/ReverbFilterFactory.h \
+	../filters/ToneGeneratorFilter.h \
+	../filters/ToneGeneratorFilterFactory.h \
+	../filters/VUMeterProtocol.h \
+	../filters/VUMeterFilter.h \
+	../filters/VUMeterFilterFactory.h \
+	../filters/HeadphoneCalibrationFilter.h \
+	../filters/HeadphoneCalibrationFilterFactory.h \
+	../IFilter.h \
+	../IFilterFactory.h \
+	guis/CopyFilterGUIScene.h \
+	guis/CopyFilterGUIForm.h \
+	guis/CopyFilterGUIRow.h \
+	helpers/GUIChannelHelper.h \
+	../helpers/ChannelHelper.h \
+	guis/DelayFilterGUI.h \
+	guis/DelayFilterGUIFactory.h \
+	../filters/DelayFilter.h \
+	../filters/DelayFilterFactory.h \
+	guis/IncludeFilterGUI.h \
+	guis/IncludeFilterGUIFactory.h \
+	widgets/ResizingLineEdit.h \
+	widgets/ChannelGraphScene.h \
+	widgets/ChannelGraphItem.h \
+	guis/ChannelFilterGUIScene.h \
+	guis/ChannelFilterGUIChannelItem.h \
+	guis/GraphicEQFilterGUIFactory.h \
+	guis/GraphicEQFilterGUI.h \
+	../filters/GraphicEQFilter.h \
+	../filters/GraphicEQFilterFactory.h \
+	../libHybridConv-0.1.1/libHybridConv_eapo.h \
+	../helpers/GainIterator.h \
+	guis/GraphicEQFilterGUIScene.h \
+	widgets/FrequencyPlotView.h \
+	widgets/FrequencyPlotHRuler.h \
+	widgets/FrequencyPlotVRuler.h \
+	widgets/FrequencyPlotItem.h \
+	guis/GraphicEQFilterGUIItem.h \
+	guis/GraphicEQFilterGUIView.h \
+	widgets/FrequencyPlotScene.h \
+	widgets/CompactToolBar.h \
+	guis/ConvolutionFilterGUIFactory.h \
+	guis/ConvolutionFilterGUI.h \
+	helpers/DisableWheelFilter.h \
+	widgets/EscapableLineEdit.h \
+	../version.h \
+	../stdafx.h \
+	MainWindow.h \
+	guis/StageFilterGUI.h \
+	guis/StageFilterGUIFactory.h \
+	guis/ExpressionFilterGUIFactory.h \
+	widgets/ResizeCorner.h \
+	AnalysisPlotView.h \
+	AnalysisPlotScene.h \
+	../FilterEngine.h \
+	../FilterConfiguration.h \
+	../filters/ChannelFilterFactory.h \
+	../filters/ExpressionFilterFactory.h \
+	../filters/IfFilterFactory.h \
+	../filters/StageFilterFactory.h \
+	../filters/ConvolutionFilterFactory.h \
+	../filters/IIRFilter.h \
+	../filters/IIRFilterFactory.h \
+	../filters/IncludeFilterFactory.h \
+	../filters/ChannelFilter.h \
+	../filters/ConvolutionFilter.h \
+	../parser/RegexFunctions.h \
+	../parser/RegistryFunctions.h \
+	../parser/StringOperators.h \
+	AnalysisThread.h \
+	widgets/ExponentialSpinBox.h \
+	FilterTableMimeData.h \
+	CustomStyle.h \
+	../AbstractAPOInfo.h \
+	../VoicemeeterAPOInfo.h \
+	../helpers/AbstractLibrary.h \
+	../helpers/VSTDiagnostics.h \
+	../helpers/VSTPluginLibrary.h \
+	guis/VSTPluginFilterGUI.h \
+	guis/VSTPluginFilterGUIFactory.h \
+	guis/VSTPluginFilterGUIDialog.h \
+	../filters/VSTPluginFilter.h \
+	../filters/VSTPluginFilterFactory.h \
+	../helpers/VSTPluginInstance.h \
+	guis/LoudnessCorrectionFilterGUI.h \
+	guis/LoudnessCorrectionFilterGUIFactory.h \
+	../filters/loudnessCorrection/LoudnessCorrectionFilter.h \
+	../filters/loudnessCorrection/LoudnessCorrectionFilterFactory.h \
+	../filters/loudnessCorrection/ParameterArchive.h \
+	../filters/loudnessCorrection/VolumeController.h \
+	guis/LoudnessCorrectionFilterGUIDialog.h \
+	helpers/QtSndfileHandle.h \
+	widgets/MiddleClickTabWidget.h \
+	widgets/MiddleClickTabBar.h
+
+FORMS    += \
+	guis/PreampFilterGUI.ui \
+	guis/CommentFilterGUI.ui \
+	FilterTableRow.ui \
+	guis/DeviceFilterGUI.ui \
+	guis/DeviceFilterGUIDialog.ui \
+	guis/ChannelFilterGUIDialog.ui \
+	guis/ChannelFilterGUI.ui \
+	guis/BiQuadFilterGUI.ui \
+	guis/CopyFilterGUI.ui \
+	guis/CopyFilterGUIRow.ui \
+	guis/DelayFilterGUI.ui \
+	guis/IncludeFilterGUI.ui \
+	guis/GraphicEQFilterGUI.ui \
+	guis/ConvolutionFilterGUI.ui \
+	MainWindow.ui \
+	guis/StageFilterGUI.ui \
+	guis/VSTPluginFilterGUI.ui \
+	guis/VSTPluginFilterGUIDialog.ui \
+	guis/LoudnessCorrectionFilterGUI.ui \
+	guis/LoudnessCorrectionFilterGUIDialog.ui
+
+# Dependency paths with environment variable support and fallbacks
+LIBSNDFILE_INCLUDE = $$(LIBSNDFILE_INCLUDE)
+isEmpty(LIBSNDFILE_INCLUDE) {
+	LIBSNDFILE_INCLUDE = "$$PWD/../third_party/vcpkg_installed/x64-windows/include"
+}
+LIBSNDFILE_LIB = $$(LIBSNDFILE_LIB)
+isEmpty(LIBSNDFILE_LIB) {
+	LIBSNDFILE_LIB = "$$PWD/../third_party/vcpkg_installed/x64-windows/lib"
+}
+
+FFTW_INCLUDE = $$(FFTW_INCLUDE)
+isEmpty(FFTW_INCLUDE) {
+	FFTW_INCLUDE = "$$PWD/../third_party/vcpkg_installed/x64-windows/include"
+}
+
+FFTW_LIB = $$(FFTW_LIB)
+isEmpty(FFTW_LIB) {
+	FFTW_LIB = "$$PWD/../third_party/vcpkg_installed/x64-windows/lib"
+}
+
+MUPARSERX_INCLUDE = $$(MUPARSERX_INCLUDE)
+isEmpty(MUPARSERX_INCLUDE) {
+	MUPARSERX_INCLUDE = "$$PWD/../third_party/muparserx/parser"
+}
+
+MUPARSERX_LIB = $$(MUPARSERX_LIB)
+isEmpty(MUPARSERX_LIB) {
+	MUPARSERX_LIB = "$$PWD/../third_party/build/muparserx-x64-windows/Release"
+}
+
+INCLUDEPATH += $$PWD/.. $$PWD/../third_party/vst3sdk $$LIBSNDFILE_INCLUDE $$FFTW_INCLUDE $$MUPARSERX_INCLUDE
+LIBS += user32.lib advapi32.lib version.lib ole32.lib Shlwapi.lib authz.lib crypt32.lib dbghelp.lib winmm.lib sndfile.lib fftw3.lib
+
+build_pass:CONFIG(debug, debug|release) {
+	LIBS += muparserxd.lib
+} else {
+	LIBS += muparserx.lib
+}
+
+contains(QT_ARCH, arm64) {
+	QMAKE_LIBDIR += $$LIBSNDFILE_LIB $$FFTW_LIB $$MUPARSERX_LIB
+} else:contains(QT_ARCH, x86_64) {
+	QMAKE_CXXFLAGS += /arch:AVX2
+	QMAKE_LIBDIR += $$LIBSNDFILE_LIB $$FFTW_LIB $$MUPARSERX_LIB
+} else {
+	QMAKE_CXXFLAGS += /arch:AVX2
+	QMAKE_LIBDIR += $$LIBSNDFILE_LIB $$FFTW_LIB $$MUPARSERX_LIB
+}
+
+# Include Common.lib
+LIBS += Common.lib
+contains(QT_ARCH, arm64) {
+	build_pass:CONFIG(debug, debug|release) {
+		QMAKE_LIBDIR += "$$PWD/../ARM64/Debug"
+
+	} else {
+		QMAKE_LIBDIR += "$$PWD/../ARM64/Release"
+	}
+} else:contains(QT_ARCH, x86_64) {
+	build_pass:CONFIG(debug, debug|release) {
+		QMAKE_LIBDIR += "$$PWD/../x64/Debug"
+
+	} else {
+		QMAKE_LIBDIR += "$$PWD/../x64/Release"
+	}
+} else {
+	build_pass:CONFIG(debug, debug|release) {
+		QMAKE_LIBDIR += "$$PWD/../x32/Debug"
+
+	} else {
+		QMAKE_LIBDIR += "$$PWD/../x32/Release"
+	}
+}
+
+RESOURCES += \
+	Editor.qrc
+TRANSLATIONS += translations/Editor_de.ts \
+	translations/Editor_fr.ts \
+	translations/Editor_zh_CN.ts
+
+RC_FILE = Editor.rc
+
+DISTFILES += ../uncrustify.cfg
+

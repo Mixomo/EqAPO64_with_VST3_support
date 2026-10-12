@@ -1,0 +1,212 @@
+
+Building for: win32-msvc (x86_64, CPU features: )
+Compiler: msvc 19.39.33520.0
+Build options:
+  Mode ................................... debug and release (with debug info)
+  Optimize release build for size ........ no
+  Fully optimize release builds (-O3) .... no
+  Building shared libraries (alias of  BUILD_SHARED_LIBS)  yes
+  Unity Build ............................ no
+  Relocatable ............................ yes
+  Using Link Time Optimization (LTCG) .... no
+  Using Intel Control-flow Enforcement Technology (CET)  yes
+  Using Glibc function fortification ..... no
+  Using -ftrivial-auto-var-init=pattern .. no
+  Using -fstack-protector-strong ......... no
+  Using -fstack-clash-protection ......... no
+  Using libstdc++ assertions ............. no
+  Using libc++ hardening ................. no
+  Using -z relro -z now when linking ..... no
+  Target compiler supports:
+    x86 Intrinsics ....................... Basic VAES AVX512VBMI2
+  Sanitizers:
+    Addresses ............................ no
+    Threads .............................. no
+    Memory ............................... no
+    Fuzzer (instrumentation only) ........ no
+    Undefined ............................ no
+  Build parts ............................ libs tools
+  Install examples sources ............... no
+  App store compliance ................... no
+Qt modules and options:
+  Qt Concurrent .......................... yes
+  Qt D-Bus ............................... yes
+  Qt D-Bus directly linked to libdbus .... no
+  Qt Gui ................................. yes
+  Qt Network ............................. yes
+  Qt PrintSupport ........................ yes
+  Qt Sql ................................. yes
+  Qt Testlib ............................. yes
+  Qt Widgets ............................. yes
+  Qt Xml ................................. yes
+Support enabled for:
+  Using pkg-config ....................... no
+  Using vcpkg ............................ no
+  udev ................................... no
+  OpenSSL ................................ yes
+    Qt directly linked to OpenSSL ........ no
+  OpenSSL 1.1 ............................ no
+  OpenSSL 3.0 ............................ yes
+  Using system zlib ...................... no
+  Zstandard support ...................... no
+  Thread support ......................... yes
+  Using 16KB page sizes in Android ....... no
+Common build options:
+  Linker can resolve circular dependencies  yes
+Qt Core:
+  backtrace .............................. no
+  C++23 <stacktrace> ..................... no
+  DoubleConversion ....................... yes
+    Using system DoubleConversion ........ no
+  GLib ................................... no
+  ICU .................................... no
+  JeMalloc ............................... no
+  std::chrono::tzdb QTZ backend .......... no
+  Using system libb2 ..................... no
+  Built-in copy of the MIME database ..... yes
+  Application permissions ................ yes
+  Tracing backend ........................ <none>
+  OpenSSL based cryptographic hash ....... no
+  Logging backends:
+    journald ............................. no
+    syslog ............................... no
+    slog2 ................................ no
+  PCRE2 .................................. yes
+    Using system PCRE2 ................... no
+Qt Sql:
+  SQL item models ........................ yes
+Qt Network:
+  getifaddrs() ........................... no
+  IPv6 ifname ............................ no
+  libproxy ............................... no
+  Schannel ............................... yes
+  DTLS ................................... yes
+  OCSP-stapling .......................... yes
+  SCTP ................................... no
+  Use system proxies ..................... yes
+  GSSAPI ................................. no
+  Brotli Decompression Support ........... no
+  qIsEffectiveTLD() ...................... yes
+    Built-in publicsuffix database ....... yes
+    System publicsuffix database ......... no
+Core tools:
+  Android deployment tool ................ yes
+  macOS deployment tool .................. no
+  Windows deployment tool ................ yes
+  qmake .................................. yes
+Wayland tools:
+  qtwaylandscanner ....................... no
+Qt Gui:
+  Accessibility .......................... yes
+  Emoji Segmenter ........................ yes
+  FreeType ............................... yes
+    Using system FreeType ................ no
+  HarfBuzz ............................... yes
+    Using system HarfBuzz ................ no
+  Fontconfig ............................. no
+  Image formats:
+    GIF .................................. yes
+    ICO .................................. yes
+    JPEG ................................. yes
+      Using system libjpeg ............... no
+    PNG .................................. yes
+      Using system libpng ................ no
+  Text formats:
+    HtmlParser ........................... yes
+    CssParser ............................ yes
+    OdfWriter ............................ yes
+    MarkdownReader ....................... yes
+      Using system libmd4c ............... no
+    MarkdownWriter ....................... yes
+  EGL .................................... no
+  OpenVG ................................. no
+  OpenGL:
+    Desktop OpenGL ....................... no
+    Dynamic OpenGL ....................... yes
+    OpenGL ES 2.0 ........................ no
+    OpenGL ES 3.0 ........................ no
+    OpenGL ES 3.1 ........................ no
+    OpenGL ES 3.2 ........................ no
+  Vulkan ................................. yes
+  Metal .................................. no
+  QGraphicsFrameCapture .................. no
+  Session Management ..................... yes
+  Multi-threaded image and painting helpers  yes
+Features used by QPA backends:
+  evdev .................................. no
+  libinput ............................... no
+  HiRes wheel support in libinput ........ no
+  INTEGRITY HID .......................... no
+  mtdev .................................. no
+  tslib .................................. no
+  xkbcommon .............................. no
+  vxworksevdev ........................... no
+  X11 specific:
+    XLib ................................. no
+    XCB Xlib ............................. no
+    EGL on X11 ........................... no
+    xkbcommon-x11 ........................ no
+    xcb-sm ............................... no
+QPA backends:
+  DirectFB ............................... no
+  EGLFS .................................. no
+  EGLFS details:
+    EGLFS OpenWFD ........................ no
+    EGLFS i.Mx6 .......................... no
+    EGLFS i.Mx6 Wayland .................. no
+    EGLFS RCAR ........................... no
+    EGLFS EGLDevice ...................... no
+    EGLFS GBM ............................ no
+    EGLFS VSP2 ........................... no
+    EGLFS Mali ........................... no
+    EGLFS Raspberry Pi ................... no
+    EGLFS X11 ............................ no
+  LinuxFB ................................ no
+  VNC .................................... no
+  VK_KHR_display ......................... no
+  QNX:
+    lgmon ................................ no
+    IMF .................................. no
+  XCB:
+    Using system-provided xcb-xinput ..... no
+    GL integrations:
+      GLX Plugin ......................... no
+        XCB GLX .......................... no
+      EGL-X11 Plugin ..................... no
+  Windows:
+    Direct 2D ............................ yes
+    Direct 2D 1.1 ........................ yes
+    DirectWrite .......................... yes
+    DirectWrite 3 ........................ yes
+    DirectWrite COLRv1 Support ........... yes
+  Wayland:
+    Client ............................... no
+    Hardware Integrations:
+      EGL ................................ no
+      Raspberry Pi ....................... no
+      DRM EGL ............................ no
+      libhybris EGL ...................... no
+      Linux dma-buf server buffer ........ no
+      Shm emulation server buffer ........ no
+      Vulkan-based server buffer ......... no
+    Shell Integrations:
+      xdg-shell .......................... no
+      wl-shell (deprecated) .............. no
+Qt Widgets:
+  GTK+ ................................... no
+  Styles ................................. Fusion Windows WindowsVista
+Qt Testlib:
+  Tester for item models ................. yes
+  Batch tests ............................ no
+Qt PrintSupport:
+  CUPS ................................... no
+Qt Sql Drivers:
+  DB2 (IBM) .............................. no
+  InterBase .............................. yes
+  MySql .................................. no
+  OCI (Oracle) ........................... yes
+  ODBC ................................... yes
+  PostgreSQL ............................. yes
+  SQLite ................................. yes
+    Using system provided SQLite ......... no
+  Mimer .................................. yes

@@ -1,0 +1,8 @@
+x64-windows/
+x64-windows/share/
+x64-windows/share/vcpkg-pkgconfig-get-modules/
+x64-windows/share/vcpkg-pkgconfig-get-modules/copyright
+x64-windows/share/vcpkg-pkgconfig-get-modules/vcpkg-port-config.cmake
+x64-windows/share/vcpkg-pkgconfig-get-modules/vcpkg.spdx.json
+x64-windows/share/vcpkg-pkgconfig-get-modules/vcpkg_abi_info.txt
+x64-windows/share/vcpkg-pkgconfig-get-modules/x_vcpkg_pkgconfig_get_modules.cmake

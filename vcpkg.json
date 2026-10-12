@@ -1,0 +1,14 @@
+{
+  "name": "equalizerapo-vst3",
+  "version-string": "1.4.2",
+  "dependencies": [
+    {
+      "name": "fftw3",
+      "features": [
+        "threads",
+        "avx2"
+      ]
+    },
+    "libsndfile"
+  ]
+}

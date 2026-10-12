@@ -1,0 +1,7 @@
+set_property(TARGET Qt6::Tools APPEND PROPERTY INTERFACE_QT_ENABLED_PUBLIC_FEATURES "$<$<OR:$<CONFIG:Debug>>:fullqthelp>")
+set_property(TARGET Qt6::Tools APPEND PROPERTY INTERFACE_QT_DISABLED_PUBLIC_FEATURES "$<$<OR:$<CONFIG:Debug>>:>")
+set_property(TARGET Qt6::Tools APPEND PROPERTY INTERFACE_QT_ENABLED_PRIVATE_FEATURES "$<$<OR:$<CONFIG:Debug>>:assistant;clang;clang_rtti;qdoc;designer;distancefieldgenerator;kmap2qmap;linguist;pixeltool;qdbus;qev;qtattributionsscanner;qtdiag;qtplugininfo>")
+set_property(TARGET Qt6::Tools APPEND PROPERTY INTERFACE_QT_DISABLED_PRIVATE_FEATURES "$<$<OR:$<CONFIG:Debug>>:>")
+set_property(TARGET Qt6::Tools APPEND PROPERTY INTERFACE_QT_QMAKE_PUBLIC_CONFIG "$<$<OR:$<CONFIG:Debug>>:>")
+set_property(TARGET Qt6::Tools APPEND PROPERTY INTERFACE_QT_QMAKE_PRIVATE_CONFIG "$<$<OR:$<CONFIG:Debug>>:>")
+set_property(TARGET Qt6::Tools APPEND PROPERTY INTERFACE_QT_QMAKE_PUBLIC_QT_CONFIG "$<$<OR:$<CONFIG:Debug>>:>")
