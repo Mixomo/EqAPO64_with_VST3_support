@@ -186,6 +186,8 @@ For normal users, install from the [GitHub Releases page](../../releases):
 
 ### Option B - Install From SourceForge
 
+[![Download EqAPO64_with_VST3_support](https://a.fsdn.com/con/app/sf-download-button)](https://sourceforge.net/projects/eqapo64-with-vst3-support/files/3.0.0/EqualizerAPO-x64-1.4.2-with-VST3-support-V3.0.0.exe/download)
+
 ## Building
 
 The build is designed to be reproducible from the repository root. Third-party
