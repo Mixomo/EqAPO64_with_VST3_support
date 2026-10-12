@@ -1,8 +1,8 @@
 # Equalizer APO 64 with VST3 support
 
-<div>
+<div align="center">
   <a href="https://sourceforge.net/projects/eqapo64-with-vst3-support/">
-    <img src="assets/sourceforge_badge.png" alt="SourceForge project" width="100">
+    <img src="assets/sourceforge_badge.png" alt="Sourceforge Badge 1" width="100">
   </a>
   &nbsp;&nbsp;
   <a href="https://sourceforge.net">
@@ -39,7 +39,7 @@ This branch is a rewrite of the VST engine from the **2.0.4 experimental branch*
 - Reproducible installer build using local dependencies under `third_party/`.
 - NSIS-based safe installer packaging with multiple optional components for saving disk space and customize the installation.
 
-## Changelog Compared With 2.0.4 Exp
+## Changelog Compared With 2.0.4 Exp (12/10/26)
 
 ### Windows User Broker
 
