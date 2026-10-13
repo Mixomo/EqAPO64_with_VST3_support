@@ -17,7 +17,23 @@ inline int scanVSTPlugin(const std::wstring& path,const std::wstring& output) {
     if(!file)return 2;
     const auto library=VSTPluginLibrary::getInstance(path);
     const int loaded=library->initialize();
-    if(loaded<0) {file<<"{\"status\":\"FAIL\",\"load_error\":"<<loaded<<"}";return 1;}
+    if(loaded<0) {
+        const auto error=library->lastLoadError();
+        wchar_t message[1024]={};
+        if(error)FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS,
+            nullptr,error,0,message,1024,nullptr);
+        const auto utf8=[](const std::wstring& value) {
+            const int length=WideCharToMultiByte(CP_UTF8,0,value.c_str(),static_cast<int>(value.size()),nullptr,0,nullptr,nullptr);
+            std::string text(length,'\0');
+            if(length)WideCharToMultiByte(CP_UTF8,0,value.c_str(),static_cast<int>(value.size()),text.data(),length,nullptr,nullptr);
+            return text;
+        };
+        file<<"{\"status\":\"FAIL\",\"load_error\":"<<loaded
+            <<",\"win32_error\":"<<error<<",\"path\":"<<scanJsonString(utf8(path))
+            <<",\"load_path\":"<<scanJsonString(utf8(library->getLoadPath()))
+            <<",\"message\":"<<scanJsonString(utf8(message))<<"}";
+        return 1;
+    }
     file<<"{\"status\":\"PASS\",\"classes\":[";
     for(int i=0;i<library->getVST3ClassCount();++i) {
         const auto uid=library->getVST3ClassUID(i);

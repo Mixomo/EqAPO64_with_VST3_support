@@ -33,15 +33,41 @@ public:
         float32Only=std::strcmp(mode,"float32")==0;
         float64Only=std::strcmp(mode,"float64")==0;
         context->queryInterface(IComponentHandler::iid,reinterpret_cast<void**>(&handler));
+#ifdef EQAPO_FIXTURE_ROUTING
+        GetEnvironmentVariableA("EQAPO_FIXTURE_LAYOUT",routingMode,sizeof(routingMode));latency=0;
+        addAudioInput(STR16("Main"),strcmp(routingMode,"fixed-surround")==0 ? SpeakerArr::k51 : SpeakerArr::kStereo);
+#else
         addAudioInput(STR16("Main"),SpeakerArr::kStereo);
+#endif
         addAudioInput(STR16("Sidechain (unrouted)"),SpeakerArr::kStereo,kAux,0);
-        addAudioOutput(STR16("Main"),SpeakerArr::kStereo);return kResultOk;
+#ifdef EQAPO_FIXTURE_ROUTING
+        addAudioOutput(STR16("Main"),strcmp(routingMode,"fixed-surround")==0 ? SpeakerArr::k51 : SpeakerArr::kStereo);
+#elif defined(EQAPO_FIXTURE_ASYMMETRIC)
+        latency=0;
+        addAudioOutput(STR16("Main"),SpeakerArr::k51);
+#else
+        addAudioOutput(STR16("Main"),SpeakerArr::kStereo);
+#endif
+        return kResultOk;
     }
     tresult PLUGIN_API canProcessSampleSize(int32 size) override {return (size==kSample32 && !float64Only) || (size==kSample64 && !float32Only) ? kResultOk : kResultFalse;}
     uint32 PLUGIN_API getLatencySamples() override {return latency;}
     tresult PLUGIN_API setActive(TBool active) override {if(active) {history={};position=0;}return AudioEffect::setActive(active);}
     tresult PLUGIN_API setBusArrangements(SpeakerArrangement* in,int32 ni,SpeakerArrangement* out,int32 no) override {
-        if(ni!=2 || no!=1 || SpeakerArr::getChannelCount(in[0])>8 || in[0]!=out[0]) return kResultFalse;
+        if(ni!=2 || no!=1) return kResultFalse;
+#ifdef EQAPO_FIXTURE_ROUTING
+        const auto supported=[](SpeakerArrangement layout){return layout==SpeakerArr::kStereo || layout==SpeakerArr::k51 || layout==SpeakerArr::k71Music;};
+        if(!supported(in[0]) || !supported(out[0]))return kResultFalse;
+        if(strcmp(routingMode,"input-only")==0 && out[0]!=SpeakerArr::kStereo)return kResultFalse;
+        if(strcmp(routingMode,"output-only")==0 && in[0]!=SpeakerArr::kStereo)return kResultFalse;
+        if(strcmp(routingMode,"fixed-stereo")==0 && (in[0]!=SpeakerArr::kStereo || out[0]!=SpeakerArr::kStereo))return kResultFalse;
+        if(strcmp(routingMode,"fixed-surround")==0 && (in[0]!=SpeakerArr::k51 || out[0]!=SpeakerArr::k51))return kResultFalse;
+        if(strcmp(routingMode,"symmetric")==0 && in[0]!=out[0])return kResultFalse;
+#elif defined(EQAPO_FIXTURE_ASYMMETRIC)
+        if(in[0]!=SpeakerArr::kStereo || (out[0]!=SpeakerArr::k51 && out[0]!=SpeakerArr::k71Music))return kResultFalse;
+#else
+        if(SpeakerArr::getChannelCount(in[0])>8 || in[0]!=out[0]) return kResultFalse;
+#endif
         getAudioInput(0)->setArrangement(in[0]);getAudioInput(1)->setArrangement(in[1]);getAudioOutput(0)->setArrangement(out[0]);return kResultOk;
     }
     tresult PLUGIN_API getState(IBStream* stream) override {
@@ -78,7 +104,19 @@ public:
             }
             for(int32 c=0;c<data.outputs[0].numChannels;++c) {
                 if(c>=8) return kResultFalse;
-                const double sample=data.symbolicSampleSize==kSample64 ? data.inputs[0].channelBuffers64[c][f] : data.inputs[0].channelBuffers32[c][f];
+                int32 inputChannel=c;
+#ifdef EQAPO_FIXTURE_ROUTING
+                if(data.inputs[0].numChannels<=0)return kResultFalse;
+                inputChannel=c%data.inputs[0].numChannels;
+#endif
+#ifdef EQAPO_FIXTURE_ASYMMETRIC
+                if(data.inputs[0].numChannels!=2)return kResultFalse;
+                inputChannel=c%2;
+#endif
+                double sample=data.symbolicSampleSize==kSample64 ? data.inputs[0].channelBuffers64[inputChannel][f] : data.inputs[0].channelBuffers32[inputChannel][f];
+#if defined(EQAPO_FIXTURE_ASYMMETRIC) || defined(EQAPO_FIXTURE_ROUTING)
+                sample*=double(c+1)/8;
+#endif
                 history[c][position%258]=sample;
                 const double result=position>=latency ? gain*history[c][(position-latency)%258] : 0;
                 if(c==0)meterSquared+=result*result;
@@ -91,6 +129,7 @@ public:
         return kResultOk;
     }
 private:
+    char routingMode[32]{};
     std::array<std::array<double,258>,8> history{};
     std::uint64_t position=0;double gain=1;bool hangs=false,crashes=false;
     uint32 latency=257;bool latencyChanges=false,reloads=false,float32Only=false,float64Only=false,restarted=false;

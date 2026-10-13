@@ -32,6 +32,7 @@ public:
 	virtual ~AbstractLibrary();
 
 	int initialize();
+    unsigned long lastLoadError() const { return loadError; }
     unsigned long long moduleLoadMilliseconds()const{return moduleLoadMs;}
     unsigned long long moduleInitializeMilliseconds()const{return moduleInitializeMs;}
 	virtual std::wstring getLibPath() = 0;
@@ -45,6 +46,7 @@ protected:
 	int initializationResult = 0;
 
 private:
+    unsigned long loadError=0;
     unsigned long long moduleLoadMs=0,moduleInitializeMs=0;
 	unsigned short getFileArchitecture(const std::wstring& filePath);
 };

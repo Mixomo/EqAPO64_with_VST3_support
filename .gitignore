@@ -56,6 +56,15 @@
 # Personal smoke settings; keep neutral example templates
 /SmokeTests/**/*.local.json
 /SmokeTests/**/*.local.txt
+/SmokeTests/**/*.local.ps1
+/SmokeTests/**/*.local.py
+/SmokeTests/**/*.local.csv
+/SmokeTests/results/
+/SmokeTests/artifacts/
+/SmokeTests/private/
+
+# Machine-specific captures and generated probe executables belong in /output/.
+# Retain neutral harness sources, runners and placeholder templates in SmokeTests.
 
 # Keep dependency sources, SDKs, licenses and intentional bundled runtimes.
 # Do not blanket-ignore *.exe, *.dll, *.lib, bin/, Debug/ or Release/.

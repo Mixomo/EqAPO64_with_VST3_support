@@ -27,7 +27,8 @@ function Check-Exit([string]$step) { if ($LASTEXITCODE -ne 0) { throw "$step fai
 Check-Exit 'Configure harnesses'
 $targets=@('EqApoRealtimeTests','EqApoContractTests','EqApoTransportSmoke','EqApoVstSmoke','EqApoFixture','EqApoFixtureVST2',
     'EqApoOutProcConfigTests','EqApoGuiObjectTests','EqApoConfigurationWriterTests','EqApoMonitorMailboxTests',
-    'EqApoParameterMailboxTests','EqApoControlEndpointTests','EqApoHandleInheritanceTests','EqApoBrokerStreamScopeTests','EqApoPanelIdleTests')
+    'EqApoParameterMailboxTests','EqApoControlEndpointTests','EqApoHandleInheritanceTests','EqApoBrokerStreamScopeTests','EqApoPanelIdleTests',
+    'EqApoAsymmetricFixture','EqApoAsymmetricChannels','EqApoRoutingFixture')
 & cmake --build $build --config Release --target @targets *> (Join-Path $results 'build.log')
 Check-Exit 'Build harnesses'
 $release=Join-Path $build 'Release'
@@ -42,6 +43,14 @@ Copy-Item -LiteralPath (Join-Path $root 'third_party\Qt\6.10.1\msvc2022_64\bin\Q
 Get-ChildItem -LiteralPath (Join-Path $root 'third_party\Qt\6.10.1\msvc2022_64\bin') -Filter 'icu*.dll' | Copy-Item -Destination $release -Force
 $fixture=Join-Path $build 'VST3\Release\EqApoFixture.vst3\Contents\x86_64-win\EqApoFixture.vst3'
 if ($Suite -in @('Core','All')) {
+    $asymmetric=Join-Path $build 'VST3\Release\EqApoAsymmetricFixture.vst3\Contents\x86_64-win\EqApoAsymmetricFixture.vst3'
+    & (Join-Path $release 'EqApoAsymmetricChannels.exe') $asymmetric $vstHostPath (Join-Path $results 'asymmetric-channels.json') *> (Join-Path $results 'asymmetric-channels.log')
+    Check-Exit 'Asymmetric surround buses and worker PCM'
+    $routing=Join-Path $build 'VST3\Release\EqApoRoutingFixture.vst3\Contents\x86_64-win\EqApoRoutingFixture.vst3'
+    & python (Join-Path $PSScriptRoot 'engine\test_flexible_channel_layouts.py') --harness (Join-Path $release 'EqApoAsymmetricChannels.exe') --fixture $routing --host $vstHostPath --output (Join-Path $results 'flexible-channel-layouts') *> (Join-Path $results 'flexible-channel-layouts.log')
+    Check-Exit 'Independent and fixed plugin channel layouts'
+    & python (Join-Path $PSScriptRoot 'engine\test_scan_diagnostics.py') --host $vstHostPath --plugin $fixture *> (Join-Path $results 'scan-diagnostics.log')
+    Check-Exit 'Isolated scanner diagnostics'
     foreach ($target in @('EqApoRealtimeTests','EqApoOutProcConfigTests','EqApoGuiObjectTests','EqApoConfigurationWriterTests',
         'EqApoMonitorMailboxTests','EqApoParameterMailboxTests','EqApoControlEndpointTests','EqApoHandleInheritanceTests','EqApoBrokerStreamScopeTests')) {
         & (Join-Path $release "$target.exe") *> (Join-Path $results "$target.log")

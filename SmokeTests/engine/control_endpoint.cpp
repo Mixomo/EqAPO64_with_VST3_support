@@ -107,13 +107,18 @@ int wmain(int argc,wchar_t** argv) {
             check(!nativeViewControl(retainedSession,54321,1,false,generation).available,"fallback identity remains validated");
             ControlEndpointOwner incoming;check(incoming.create(retainedSession,sid,12345,48000,2,false),"stage reactivation while retained view exists");
             auto* next=static_cast<NativeViewChannel*>(MapViewOfFile(incoming.getNativeViewHandle(),FILE_MAP_ALL_ACCESS,0,0,sizeof(NativeViewChannel)));
-            check(next!=nullptr,"map pending reactivation");next->hostPid.store(GetCurrentProcessId());
+            check(next!=nullptr,"map pending reactivation");next->hostPid.store(GetCurrentProcessId());next->status.store(1);
             check(nativeViewControl(retainedSession,12345,3,false,generation).available
                 && retained->command.load()==3 && next->command.load()==3
                 && retained->desiredVisibility.load()==0 && next->desiredVisibility.load()==0,
                 "close cancels retained and pending GUI rather than leaving an orphan");
             retained->status.store(1);retained->command.store(0);
             check(nativeViewControl(retainedSession,12345,0,false,generation).status==1,"X closure remains observable during bypass");
+            const auto reopened=nativeViewControl(retainedSession,12345,1,false,generation);
+            check(reopened.available && reopened.generation==incoming.getGeneration()
+                && next->command.load()==1 && next->desiredVisibility.load()==1
+                && retained->command.load()==0 && retained->desiredVisibility.load()==0,
+                "X reopen targets current generation rather than a closed retired worker");
             UnmapViewOfFile(next);UnmapViewOfFile(retained);CloseHandle(retainedHandle);
         }
         ControlEndpointOwner invalid;check(!invalid.create(L"bad\\name",sid,1),"invalid object name rejected");

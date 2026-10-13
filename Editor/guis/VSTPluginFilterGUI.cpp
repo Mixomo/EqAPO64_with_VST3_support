@@ -575,6 +575,7 @@ void VSTPluginFilterGUI::on_idle()
 void VSTPluginFilterGUI::scanProtectedPlugin() {
     if(scanner || library->getLibPath().empty())return;
     const auto scanLibrary=library;
+    ui->warningTextEdit->hide();
     const QString report=QDir::temp().absoluteFilePath("EqApoScan-"+QUuid::createUuid().toString(QUuid::WithoutBraces)+".json");
     scanner=new QProcess(this);
     auto* process=scanner;
@@ -610,7 +611,24 @@ void VSTPluginFilterGUI::scanProtectedPlugin() {
                     }
                     refreshVST3ClassComboBox();ui->statusLabel->setText(tr("Ready · protected processing"));
                 }
-            } else ui->statusLabel->setText(tr("Plugin check failed or timed out; audio uses the safe fallback"));
+            } else {
+                QString reason;
+                if(object["status"]=="FAIL") {
+                    switch(object["load_error"].toInt()) {
+                    case AbstractLibrary::FILE_NOT_FOUND: reason=tr("Plugin file not found");break;
+                    case AbstractLibrary::WRONG_ARCHITECTURE: reason=tr("Plugin architecture does not match the 64-bit host");break;
+                    case AbstractLibrary::FUNCTIONS_MISSING: reason=tr("Plugin entry point or audio effect class is missing");break;
+                    default: reason=tr("Plugin library could not be loaded");break;
+                    }
+                    const int error=object["win32_error"].toInt();
+                    if(error)reason+=tr(" (Windows error %1: %2)").arg(error).arg(object["message"].toString().trimmed());
+                } else if(status==QProcess::CrashExit)reason=tr("Plugin checker crashed or timed out");
+                else reason=tr("Plugin checker failed (exit code %1)").arg(code);
+                const QString path=QString::fromStdWString(scanLibrary->getLoadPath());
+                ui->statusLabel->setText(reason);
+                ui->warningTextEdit->setPlainText(reason+"\n"+QDir::toNativeSeparators(path));
+                ui->warningTextEdit->show();
+            }
         }
         QFile::remove(report);scanner=nullptr;process->deleteLater();
         if(library!=scanLibrary)scanProtectedPlugin();

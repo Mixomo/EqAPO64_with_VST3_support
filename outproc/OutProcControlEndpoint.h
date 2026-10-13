@@ -382,7 +382,12 @@ inline NativeViewSnapshot nativeViewControl(const std::wstring& session,std::uin
     // still owns its exact secured generation mapping in the worker.
     auto current=nativeViewControlGeneration(session,identity,generation);
     auto retained=retainedGeneration!=generation?nativeViewControlGeneration(session,identity,retainedGeneration):current;
-    if(current.available && (!retained.available || current.status==2 || current.status==3 || current.status==6))result=current;
+    // Retain the generation only while it still owns an open/hidden panel or
+    // an explicit pending visibility request. A closed retired worker must
+    // not receive a reopen intended for the current audible generation.
+    const bool retainedPanel=retained.available &&
+        (retained.status==2 || retained.status==3 || retained.visibility!=0);
+    if(current.available && (!retainedPanel || current.status==2 || current.status==3 || current.status==6))result=current;
     else if(retained.available)result=retained;
     else result=current;
     if(command==2 || command==3) {

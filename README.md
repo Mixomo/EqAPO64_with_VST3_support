@@ -10,7 +10,7 @@
   </a>
 </div>
 
-**Branch: `v3-rewrite`.**
+**Branch: `v3-exp`.**
 
 This repository is a restructured Windows fork based on [TheFireKahuna/equalizerAPO64](https://github.com/TheFireKahuna/equalizerAPO64), with the goal of keeping the familiar Equalizer APO workflow while adding
 native VST3 plug-in support.
@@ -26,6 +26,8 @@ This branch is a rewrite of the VST engine from the **2.0.4 experimental branch*
 - Double-precision processing through the 64-bit internal pipeline for precision when applying multiple overlapping effects, including convolution, complex parametric EQ configurations and GraphicEQ curves.
 - One isolated VST2/VST3 engine with native plug-in panels and live editing through the Steinberg VST3 SDK.
 - Existing VST2 support retained for older plug-ins.
+- Flexible VST3 input/output layout negotiation for stereo, 5.1 and 7.1 devices, including plug-ins with different input and output channel counts.
+- Plug-in load diagnostics with the selected path and Windows error, and consistent panel reopening after bypass or window closure.
 - Native EQ, pan, chorus, reverb, crossfeed, tone generator and VU meter.
 - GraphicEQ FIR export and explicit IR/FIR sample-rate validation for
   convolution.
@@ -39,7 +41,16 @@ This branch is a rewrite of the VST engine from the **2.0.4 experimental branch*
 - Reproducible installer build using local dependencies under `third_party/`.
 - NSIS-based safe installer packaging with multiple optional components for saving disk space and customize the installation.
 
-## Changelog Compared With 2.0.4 Exp (12/10/26)
+## Changelog | 3.0.1 (13/10/2026)
+
+- Negotiates VST3 input and output layouts independently using the selected device's channel configuration. Supports stereo effects on multichannel devices and effects with stereo input and multichannel output, while retaining supported fixed layouts.
+- Improves channel routing and preserves plug-in settings when the device channel configuration changes.
+- Shows more specific plug-in loading errors, including the path and Windows error when available. Plug-ins can be selected from drives other than C:, including paths with spaces or Unicode characters.
+- Fixes reopening a plug-in panel after closing it during bypass/reactivation, avoiding stale window state and orphaned panels.
+- Speed-up the installation by removing the bundled online tutorial and configuration-reference shortcuts from the installer and cleans up shortcuts left by previous installations. 
+-  [for developers - compilation] Adds a dedicated, configurable multichannel smoke suite covering stereo, 5.1 and 7.1 layouts, asymmetric input/output counts, routing, format changes and isolated processing. Generated test results remain outside the source tree.
+
+## Changelog (3.0.0) Compared With 2.0.4 Exp (12/10/26)
 
 ### Windows User Broker
 
@@ -254,6 +265,8 @@ test tools and runs:
   Hide/Show and reactivation with the same window; or use
   `-MatrixPath '<YOUR_MATRIX_JSON>'` for a completed copy of the plug-in
   path template in `SmokeTests/templates/`.
+
+For only the neutral multichannel checks, run `powershell -NoProfile -ExecutionPolicy Bypass -File .\SmokeTests\run-multichannel-smoke.ps1`. It checks stereo/5.1/7.1 layouts, independent input/output buses, format changes and each output channel through owned workers. These checks are also included in Core.
 
 Use `-Suite Core` or `-Suite Transport` to run only that group. `SmokeSeconds`
 accepts 1–60 and sets each transport trial's duration and external plug-in timeout;

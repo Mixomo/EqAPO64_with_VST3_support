@@ -43,13 +43,17 @@ int AbstractLibrary::initialize()
 	if (module == NULL)
 	{
 		wstring libPath = getLoadPath();
-		if (GetFileAttributesW(libPath.c_str()) == INVALID_FILE_ATTRIBUTES)
+        loadError=0;
+		if (GetFileAttributesW(libPath.c_str()) == INVALID_FILE_ATTRIBUTES) {
+            loadError=GetLastError();
 			return FILE_NOT_FOUND;
+        }
         const auto loadStarted=GetTickCount64();
 		module = LoadLibraryW(libPath.c_str());
         moduleLoadMs=GetTickCount64()-loadStarted;
 		if (module == NULL)
 		{
+            loadError=GetLastError();
 			unsigned short arch = getFileArchitecture(libPath);
 #ifdef _WIN64
 			int bitDepth = 64;

@@ -1645,10 +1645,6 @@ void VSTPluginInstance::configureVST3Buses(int requestedChannelCount)
             info[i]={}; vst3Component->getBusInfo(kAudio,direction,i,info[i]);
             vst3Processor->getBusArrangement(direction,i,arrangements[i]);
             if(mainIndex<0 && info[i].busType==kMain)mainIndex=i;
-            if(i==mainIndex && requestedChannelCount>0) {
-                auto requested=speakerArrangementForChannelCount(requestedChannelCount);
-                if(requested!=SpeakerArr::kEmpty) arrangements[i]=requested;
-            }
             // All buses remain discoverable; auxiliary routing is not invented.
             vst3Component->activateBus(kAudio,direction,i,i==mainIndex);
         }
@@ -1656,11 +1652,33 @@ void VSTPluginInstance::configureVST3Buses(int requestedChannelCount)
             vst3Component->activateBus(kEvent,direction,i,false);
     };
     collect(kInput,inputs,vst3InputBusInfo,vst3InputMainIndex); collect(kOutput,outputs,vst3OutputBusInfo,vst3OutputMainIndex);
-    if(vst3Processor->setBusArrangements(inputs.data(),int32(inputs.size()),outputs.data(),int32(outputs.size()))!=kResultOk) {
-        // An asymmetric mono->stereo plugin may reject the preferred layout.
-        for(int32 i=0;i<int32(inputs.size());++i) vst3Processor->getBusArrangement(kInput,i,inputs[i]);
-        for(int32 i=0;i<int32(outputs.size());++i) vst3Processor->getBusArrangement(kOutput,i,outputs[i]);
-        processingSetupValid=vst3Processor->setBusArrangements(inputs.data(),int32(inputs.size()),outputs.data(),int32(outputs.size()))==kResultOk;
+    const auto originalInputs=inputs,originalOutputs=outputs;
+    const auto requested=speakerArrangementForChannelCount(requestedChannelCount);
+    using Layout=std::pair<std::vector<SpeakerArrangement>,std::vector<SpeakerArrangement>>;
+    std::vector<Layout> attempted;
+    const auto negotiate=[&](bool adaptInput,bool adaptOutput) {
+        inputs=originalInputs;outputs=originalOutputs;
+        if(requested!=SpeakerArr::kEmpty) {
+            if(adaptInput && vst3InputMainIndex>=0)inputs[vst3InputMainIndex]=requested;
+            if(adaptOutput && vst3OutputMainIndex>=0)outputs[vst3OutputMainIndex]=requested;
+        }
+        const Layout layout{inputs,outputs};
+        if(std::find(attempted.begin(),attempted.end(),layout)!=attempted.end())return false;
+        attempted.push_back(layout);
+        return vst3Processor->setBusArrangements(inputs.data(),int32(inputs.size()),outputs.data(),int32(outputs.size()))==kResultOk;
+    };
+    const bool asymmetric=vst3InputMainIndex>=0 && vst3OutputMainIndex>=0
+        && SpeakerArr::getChannelCount(originalInputs[vst3InputMainIndex])!=SpeakerArr::getChannelCount(originalOutputs[vst3OutputMainIndex]);
+    // Negotiate the main directions independently. Each rejected request starts
+    // again from the announced buses; auxiliary layouts stay untouched.
+    if(asymmetric) {
+        const bool outputMatches=vst3OutputMainIndex>=0 && originalOutputs[vst3OutputMainIndex]==requested;
+        processingSetupValid=(outputMatches ? negotiate(true,false)||negotiate(false,true)
+                                            : negotiate(false,true)||negotiate(true,false))
+            ||negotiate(true,true)||negotiate(false,false);
+    } else {
+        processingSetupValid=negotiate(true,true)||negotiate(false,true)
+            ||negotiate(true,false)||negotiate(false,false);
     }
     BusInfo info{};
     vst3InputChannelCount=0; vst3OutputChannelCount=0;

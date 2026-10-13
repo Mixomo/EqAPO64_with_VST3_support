@@ -484,8 +484,9 @@ Section "-Install"
   ${EndIf}
   SetOutPath "$INSTDIR"
 
-  File "Configuration tutorial (online).url"
-  File "Configuration reference (online).url"
+  ; Remove the obsolete tutorial shortcut when upgrading an existing install.
+  Delete "$INSTDIR\Configuration tutorial (online).url"
+  Delete "$INSTDIR\Configuration reference (online).url"
   
   CreateDirectory "$INSTDIR\config"
   CreateDirectory "$INSTDIR\VSTPlugins"
@@ -527,8 +528,8 @@ Section "-Install"
   Delete "$SMPROGRAMS\$StartMenuFolder\FabFilter LocalService licenses.lnk"
   Delete "$SMPROGRAMS\$StartMenuFolder\Goodhertz LocalService profile.lnk"
   CreateShortCut "$SMPROGRAMS\$StartMenuFolder\Equalizer APO Configuration Editor.lnk" "$INSTDIR\Editor.exe"
-  CreateShortCut "$SMPROGRAMS\$StartMenuFolder\Configuration tutorial (online).lnk" "$INSTDIR\Configuration tutorial (online).url"
-  CreateShortCut "$SMPROGRAMS\$StartMenuFolder\Configuration reference (online).lnk" "$INSTDIR\Configuration reference (online).url"
+  Delete "$SMPROGRAMS\$StartMenuFolder\Configuration tutorial (online).lnk"
+  Delete "$SMPROGRAMS\$StartMenuFolder\Configuration reference (online).lnk"
   CreateShortCut "$SMPROGRAMS\$StartMenuFolder\Equalizer APO Device Selector.lnk" "$INSTDIR\DeviceSelector.exe"
   CreateShortCut "$SMPROGRAMS\$StartMenuFolder\Benchmark.lnk" "$INSTDIR\Benchmark.exe"
   CreateShortCut "$SMPROGRAMS\$StartMenuFolder\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
