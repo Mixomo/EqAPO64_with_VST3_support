@@ -2,13 +2,18 @@
     [ValidateRange(1,60)][int]$SmokeSeconds=60,
     [ValidateSet('Core','Transport','All')][string]$Suite='All',
     [string]$MatrixPath='',
-    [switch]$WithFixtureGui
+    [switch]$WithFixtureGui,
+    [string]$EditorPath=''
 )
 $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
 $build=Join-Path $root '_build\smoke'
 $results=Join-Path $root ('output\smoke\'+(Get-Date -Format 'yyyyMMdd-HHmmss'))
 $vstHostPath=Join-Path $root 'x64\Release\EqApoOutProcHost.exe'
+if($EditorPath){
+    if(!$WithFixtureGui -or !(Test-Path -LiteralPath $EditorPath -PathType Leaf)){throw 'Use -WithFixtureGui and an existing EditorPath with its Qt runtime deployed.'}
+    $EditorPath=(Resolve-Path -LiteralPath $EditorPath).Path
+}
 if (!(Test-Path -LiteralPath $vstHostPath) -or !(Test-Path -LiteralPath (Join-Path $root 'x64\Release\Common.lib'))) {
     throw 'First compile the application with build.bat / build.ps1.'
 }
@@ -28,7 +33,8 @@ Check-Exit 'Configure harnesses'
 $targets=@('EqApoRealtimeTests','EqApoContractTests','EqApoTransportSmoke','EqApoVstSmoke','EqApoFixture','EqApoFixtureVST2',
     'EqApoOutProcConfigTests','EqApoGuiObjectTests','EqApoConfigurationWriterTests','EqApoMonitorMailboxTests',
     'EqApoParameterMailboxTests','EqApoControlEndpointTests','EqApoHandleInheritanceTests','EqApoBrokerStreamScopeTests','EqApoPanelIdleTests',
-    'EqApoAsymmetricFixture','EqApoAsymmetricChannels','EqApoRoutingFixture')
+    'EqApoAsymmetricFixture','EqApoAsymmetricChannels','EqApoRoutingFixture','EqApoPanelVisibility',
+    'EqApoStatePersistence','EqApoBrokerStatePersistence')
 & cmake --build $build --config Release --target @targets *> (Join-Path $results 'build.log')
 Check-Exit 'Build harnesses'
 $release=Join-Path $build 'Release'
@@ -61,6 +67,24 @@ if ($Suite -in @('Core','All')) {
     if ($WithFixtureGui) {
         & (Join-Path $release 'EqApoPanelIdleTests.exe') $fixture *> (Join-Path $results 'panel-idle.log')
         Check-Exit 'Retained graph panel animation'
+        foreach ($panelFixture in @($fixture,(Join-Path $release 'EqApoFixtureVST2.dll'))) {
+            $label=if ($panelFixture -eq $fixture) {'vst3'} else {'vst2'}
+            & (Join-Path $release 'EqApoPanelVisibility.exe') $panelFixture *> (Join-Path $results "panel-visibility-$label.log")
+            Check-Exit "Panel visibility $label"
+            $parameter=if ($label -eq 'vst3') {7} else {0}
+            & (Join-Path $release 'EqApoStatePersistence.exe') $panelFixture $parameter *> (Join-Path $results "state-persistence-$label.log")
+            Check-Exit "State persistence $label"
+        }
+        & (Join-Path $release 'EqApoBrokerStatePersistence.exe') $vstHostPath $fixture (Join-Path $release 'EqApoFixtureVST2.dll') $fixture 7 0.75 *> (Join-Path $results 'broker-state-persistence.log')
+        Check-Exit 'Multi-plugin broker state persistence'
+        if($EditorPath){
+            & python (Join-Path $PSScriptRoot 'engine\test_editor_stream_persistence.py') --editor $EditorPath --host $vstHostPath --probe (Join-Path $release 'EqApoBrokerStatePersistence.exe') --fixture-vst3 $fixture --fixture-vst2 (Join-Path $release 'EqApoFixtureVST2.dll') --output $results *> (Join-Path $results 'editor-stream-persistence.log')
+            Check-Exit 'Actual Editor sessions and cold audio streams'
+            $saveCloseOutput=Join-Path $results 'editor-save-on-close'
+            $closeCase=Start-Process -FilePath $EditorPath -ArgumentList @('--save-on-close-audit',('"'+$saveCloseOutput+'"')) -WindowStyle Hidden -PassThru
+            if(!$closeCase.WaitForExit(15000)){$closeCase.Kill();$closeCase.WaitForExit();throw "Editor close audit timed out; owned PID $($closeCase.Id)"}
+            if($closeCase.ExitCode -ne 0){throw "Editor close audit failed ($($closeCase.ExitCode))"}
+        }
     }
     $smokeArgs=@('--plugin',$fixture,'--out',(Join-Path $results 'fixture-vst3.json'))
     if ($WithFixtureGui) { $smokeArgs += '--gui' }

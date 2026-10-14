@@ -20,6 +20,7 @@
 #include <sstream>
 #include <QDrag>
 #include <QElapsedTimer>
+#include <QEventLoop>
 #include <QLabel>
 #include <QMimeData>
 #include <QPushButton>
@@ -349,6 +350,8 @@ void MainWindow::load(QString path)
 
 void MainWindow::save(FilterTable* filterTable, QString path, int retry)
 {
+    filterTable->setProperty("configurationSavePending",true);
+    filterTable->setProperty("configurationSaveFailed",false);
 	if(!retry)filterTable->setProperty("configurationSaveRevision",
 		filterTable->property("configurationSaveRevision").toULongLong()+1);
 	QElapsedTimer timer;
@@ -369,6 +372,11 @@ void MainWindow::save(FilterTable* filterTable, QString path, int retry)
 
     QString writeError;
     if(!writeEditorConfiguration(path,byteArray,&writeError)) {
+        for(int i=0;i<ui->tabWidget->count();++i){
+            auto* area=qobject_cast<QScrollArea*>(ui->tabWidget->widget(i));
+            if(area && area->widget()==filterTable && !ui->tabWidget->tabText(i).endsWith('*'))
+                ui->tabWidget->setTabText(i,ui->tabWidget->tabText(i)+'*');
+        }
         // The audio engine may still hold its short-lived config read handle.
         // Retry on the event loop, coalescing newer edits; never sleep in GUI.
         if(retry<4 && QFileInfo::exists(path)) {
@@ -379,8 +387,17 @@ void MainWindow::save(FilterTable* filterTable, QString path, int retry)
             });
             return;
         }
+        filterTable->setProperty("configurationSavePending",false);
+        filterTable->setProperty("configurationSaveFailed",true);
         QMessageBox::critical(this,tr("Error"),tr("Error while writing configuration file: %0").arg(writeError));
         return;
+    }
+    filterTable->setProperty("configurationSavePending",false);
+    filterTable->setProperty("configurationSaveFailed",false);
+    for(int i=0;i<ui->tabWidget->count();++i){
+        auto* area=qobject_cast<QScrollArea*>(ui->tabWidget->widget(i));
+        if(area && area->widget()==filterTable && ui->tabWidget->tabText(i).endsWith('*'))
+            ui->tabWidget->setTabText(i,ui->tabWidget->tabText(i).chopped(1));
     }
 
 	qDebug("Saving took %.1f ms", timer.nsecsElapsed() / 1e6);
@@ -603,9 +620,6 @@ void MainWindow::on_actionSave_triggered()
 	{
 		save(filterTable, filterTable->getConfigPath());
 
-		QString tabText = ui->tabWidget->tabText(ui->tabWidget->currentIndex());
-		if (tabText.endsWith('*'))
-			ui->tabWidget->setTabText(ui->tabWidget->currentIndex(), tabText.left(tabText.length() - 1));
 	}
 }
 
@@ -725,9 +739,6 @@ void MainWindow::instantModeEnabled(bool enabled)
 			{
 				save(filterTable, filterTable->getConfigPath());
 
-				QString tabText = ui->tabWidget->tabText(i);
-				if (tabText.endsWith('*'))
-					ui->tabWidget->setTabText(i, tabText.left(tabText.length() - 1));
 			}
 		}
 	}
@@ -930,6 +941,17 @@ bool MainWindow::askForClose(int tabIndex)
     auto* pendingArea=qobject_cast<QScrollArea*>(ui->tabWidget->widget(tabIndex));
     auto* pendingTable=pendingArea?qobject_cast<FilterTable*>(pendingArea->widget()):nullptr;
     if(pendingTable && !pendingTable->flushPendingEdits())return false;
+    auto waitForSave=[&](){
+        if(!pendingTable || !pendingTable->property("configurationSavePending").toBool())return true;
+        QEventLoop waiting;QTimer poll,deadline;poll.setInterval(10);deadline.setSingleShot(true);
+        connect(&poll,&QTimer::timeout,&waiting,[&](){if(!pendingTable->property("configurationSavePending").toBool())waiting.quit();});
+        connect(&deadline,&QTimer::timeout,&waiting,&QEventLoop::quit);
+        poll.start();deadline.start(1000);waiting.exec(QEventLoop::ExcludeUserInputEvents);
+        return !pendingTable->property("configurationSavePending").toBool();
+    };
+    // A final VST checkpoint may have queued a file-write retry. Keep the
+    // table and its timers alive until the latest save completes.
+    if(!waitForSave())return false;
 	bool discarded = false;
 	if (ui->tabWidget->tabText(tabIndex).endsWith('*'))
 	{
@@ -962,6 +984,7 @@ bool MainWindow::askForClose(int tabIndex)
 		}
 	}
 
+    if(!discarded && (!waitForSave() || (pendingTable && pendingTable->property("configurationSaveFailed").toBool())))return false;
 	if (!discarded && !noSaveFilePreferences)
 	{
 		QScrollArea* scrollArea = qobject_cast<QScrollArea*>(ui->tabWidget->widget(tabIndex));

@@ -41,6 +41,14 @@ This branch is a rewrite of the VST engine from the **2.0.4 experimental branch*
 - Reproducible installer build using local dependencies under `third_party/`.
 - NSIS-based safe installer packaging with multiple optional components for saving disk space and customize the installation.
 
+## Changelog | 3.0.2 (14/10/2026)
+
+- Fixed VST state persistence when closing and reopening Configuration Editor. The editor now flushes pending VST GUI edits through the module wrapper before shutdown and waits for pending configuration writes to finish.
+- Preserves the current VST preset and parameters when bypassing and reactivating a module by saving a complete checkpoint before the configuration change.
+- Keeps an open VST panel animated when other modules or filters change. The retained panel receives input from the replacement audio graph for its meters and visualizations; its output is discarded.
+- Preserves VST parameters across audio stream changes, including newly created processing streams at different sample rates.
+- [for developers - compilation] Adds neutral smoke coverage for editor restart, saved configuration state, bypass transitions, retained panel updates and new audio streams.
+
 ## Changelog | 3.0.1 (13/10/2026)
 
 - Negotiates VST3 input and output layouts independently using the selected device's channel configuration. Supports stereo effects on multichannel devices and effects with stereo input and multichannel output, while retaining supported fixed layouts.

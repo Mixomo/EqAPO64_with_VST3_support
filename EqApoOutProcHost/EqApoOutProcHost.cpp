@@ -25,6 +25,7 @@
 #include "outproc/OutProcVSTConfig.h"
 #include "outproc/OutProcControlEndpoint.h"
 #include "NativeDspViewAudit.h"
+#include "outproc/VSTStateHandoff.h"
 #include "helpers/VSTGuiAudioMonitor.h"
 #include "outproc/BrokerAudioSession.h"
 #include "outproc/BrokerCatalog.h"
@@ -1303,6 +1304,8 @@ static int runHostMain(int argc, wchar_t** argv)
     if(rebindAudit && (dspState.vst.config.libraryPath.substr(dspState.vst.config.libraryPath.find_last_of(L"\\/")+1)!=L"EqApoFixture.vst3"
         || nativeMapping.channel || header->analysisOnly))TerminateProcess(GetCurrentProcess(),25);
     const auto rebindStarted=GetTickCount64();bool rebindDone=false,rebindClosed=false;unsigned rebindClicks=0,rebindRelayed=0;
+    // Keep the last requested preset separate from live GUI checkpoints.
+    OutProcVSTConfig requestedPreset=dspState.vst.config;
     NativeDspViewAudit nativeViewAudit(nativeMapping.channel,sessionId,dspState.vst.config);
     nativeViewAudit.setRetainedParameterSink([&](std::uint32_t id,double value,int offset){
         return header->parameters.publish(header->parameters.generation,id,value,offset);
@@ -1321,12 +1324,45 @@ static int runHostMain(int argc, wchar_t** argv)
         ResetEvent(panelPreview.stop);
         panelPreview.worker=std::thread([&]() {
             CoInitializeEx(nullptr,COINIT_MULTITHREADED);
+            // A graph replacement creates a new audible component. The old
+            // component can still own the native window for a short overlap.
+            // Consume the new graph's monitor input here so meters, spectrum
+            // views and editor animations continue on that retained window.
+            // This worker's output remains private and is never mixed back.
+            EqApoControl::MonitorReader monitor;
+            std::vector<float> monitorInput(EqApoControl::MonitorMailbox::channelsLimit
+                *EqApoControl::MonitorMailbox::framesLimit);
+            const auto identity=EqApoControl::controlIdentity(dspState.vst.config.libraryPath,
+                dspState.vst.config.classUID,dspState.vst.config.vst3ClassIndex);
+            bool monitorConnected=false;
             const DWORD interval=(std::max)(1u,static_cast<unsigned>(std::ceil(1000.0*header->maxFrames/header->sampleRate)));
             while(WaitForSingleObject(panelPreview.stop,interval)==WAIT_TIMEOUT) {
                 if(!panelPreview.enabled.load(std::memory_order_acquire))continue;
                 unsigned expected=0;
                 if(!owner.compare_exchange_strong(expected,1,std::memory_order_acquire))continue;
-                if(!processPanelSilence()){header->lastError.store(3);panelPreview.enabled.store(false);}
+                if(!monitorConnected)monitorConnected=monitor.connect(sessionId,identity);
+                const unsigned monitorFrames=monitorConnected && monitor.refresh()
+                    ?monitor.consume(monitorInput.data()):0;
+                bool processed=true;
+                if(monitorFrames) {
+                    // The retained transport has fixed shared-memory capacity.
+                    // Copy the channels it owns and zero-fill the remainder;
+                    // a changed endpoint layout must never overrun it.
+                    const unsigned sourceChannels=monitor.channels();
+                    for(unsigned offset=0;offset<monitorFrames;offset+=header->maxFrames) {
+                        const unsigned frames=(std::min)(header->maxFrames,monitorFrames-offset);
+                        auto* destination=OutProcAudioInput(header);
+                        for(unsigned channel=0;channel<header->channelCount;++channel) {
+                            auto* target=destination+std::size_t(channel)*header->maxFrames;
+                            if(channel<sourceChannels)
+                                convertFloatToDouble(target,monitorInput.data()+std::size_t(channel)*EqApoControl::MonitorMailbox::framesLimit+offset,frames);
+                            else std::fill(target,target+frames,0.);
+                        }
+                        header->frameCount=frames;
+                        if(!(processed=processVst(header,dspState)))break;
+                    }
+                } else processed=processPanelSilence();
+                if(!processed){header->lastError.store(3);panelPreview.enabled.store(false);}
                 owner.store(0,std::memory_order_release);
             }
             CoUninitialize();
@@ -1377,7 +1413,9 @@ static int runHostMain(int argc, wchar_t** argv)
                     for(unsigned i=0;i<64;++i){dspState.vst.floatInputs[i]=dspState.vst.floatInputStorage[i].data();dspState.vst.floatOutputs[i]=dspState.vst.floatOutputStorage[i].data();}
                     dspState.vst.maxFrames=nextHeader->maxFrames;
                 }
-                for(auto& effect:dspState.vst.effects){effect->writeToEffect(nextBroker->config.chunkData,nextBroker->config.paramMap);effect->prepareForProcessing(float(nextHeader->sampleRate),int(nextHeader->maxFrames));if(!effect->isProcessingValid())TerminateProcess(GetCurrentProcess(),26);effect->startProcessing();}
+                const bool presetChanged=OutProcVSTPresetChanged(requestedPreset,nextBroker->config);
+                for(auto& effect:dspState.vst.effects){if(presetChanged)effect->writeToEffect(nextBroker->config.chunkData,nextBroker->config.paramMap);effect->prepareForProcessing(float(nextHeader->sampleRate),int(nextHeader->maxFrames));if(!effect->isProcessingValid())TerminateProcess(GetCurrentProcess(),26);effect->startProcessing();}
+                requestedPreset=nextBroker->config;
                 if(!nativeViewAudit.rebind(nextView,sessionId,nextBroker->metadata->identity))TerminateProcess(GetCurrentProcess(),25);
                 if(nativeMapping.channel)UnmapViewOfFile(nativeMapping.channel);if(nativeMapping.handle)CloseHandle(nativeMapping.handle);
                 nativeMapping.channel=nextView;nativeMapping.handle=nextViewHandle;nextView=nullptr;nextViewHandle=nullptr;

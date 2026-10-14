@@ -40,6 +40,9 @@ public:
 	virtual void loadPreferences(const QVariantMap& prefs) {}
 	virtual void storePreferences(QVariantMap& prefs) {}
 	virtual void prepareDelete() {}
+	// Called before a wrapper serializes a structural change such as module
+	// bypass. Stateful children can commit their live state without closing.
+	virtual bool checkpointPendingEdits() { return true; }
     virtual bool flushPendingEdits() { return true; }
 
 signals:

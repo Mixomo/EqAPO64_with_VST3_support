@@ -40,7 +40,7 @@ int wmain(int argc,wchar_t** argv) {
         check(!original->readNativeSnapshot(checkpoint,checkpointPath),"malformed checkpoint path rejected");
         previousView->snapshotPath[1023]=0;
         check(original->readNativeSnapshot(checkpoint,checkpointPath) && checkpoint==2,"repaired checkpoint can be retried");
-        previousView->status.store(2);previousView->x.store(123);previousView->y.store(234);
+        previousView->status.store(2);previousView->desiredVisibility.store(1);previousView->x.store(123);previousView->y.store(234);
         auto replacement=std::make_unique<ControlEndpointOwner>();check(replacement->create(session,sid,12345,48000,2,false),"stage replacement endpoint");
         check(replacement->getGeneration()!=original->getGeneration(),"new generation");
         check(cached.publish(92,.5),"edit during independent preparation");
@@ -123,6 +123,20 @@ int wmain(int argc,wchar_t** argv) {
         }
         ControlEndpointOwner invalid;check(!invalid.create(L"bad\\name",sid,1),"invalid object name rejected");
         check(!invalid.create(session,L"invalid SID",1),"invalid SID rejected");
+        for(unsigned pendingShow=0;pendingShow<=1;++pendingShow) for(unsigned intent=0;intent<=2;++intent) {
+            const auto leaseSession=session+L"-visibility-"+std::to_wstring(intent)+L"-"+std::to_wstring(pendingShow);
+            ControlEndpointOwner before;check(before.create(leaseSession,sid,12345),"create visibility predecessor");
+            auto* oldView=static_cast<NativeViewChannel*>(MapViewOfFile(before.getNativeViewHandle(),FILE_MAP_ALL_ACCESS,0,0,sizeof(NativeViewChannel)));
+            check(oldView!=nullptr,"map visibility predecessor");
+            oldView->editorPid.store(GetCurrentProcessId());oldView->hostPid.store(GetCurrentProcessId());
+            // Window status can lag a close/hide request during graph replacement.
+            oldView->status.store(2);oldView->desiredVisibility.store(intent);oldView->command.store(pendingShow);
+            ControlEndpointOwner after;check(after.create(leaseSession,sid,12345,48000,2,false),"replace visibility generation");
+            auto* next=static_cast<NativeViewChannel*>(MapViewOfFile(after.getNativeViewHandle(),FILE_MAP_ALL_ACCESS,0,0,sizeof(NativeViewChannel)));
+            check(next && next->desiredVisibility.load()==intent,"replacement preserves user intent despite stale visible status");
+            check(next->command.load()==(intent?1u:0u),"closed panel receives no automatic open request");
+            UnmapViewOfFile(next);UnmapViewOfFile(oldView);
+        }
         std::cout<<"PASS actual named control IPC / identity / replacement / cleanup / restricted DACL\n";return 0;
     }catch(const std::exception& error) {std::cerr<<"FAIL "<<error.what()<<'\n';return 1;}
 }

@@ -190,6 +190,7 @@ public:
             if(command==3){close();return;}
             if(command==2){channel->desiredVisibility.store(2);if(window){ShowWindow(window,SW_HIDE);channel->status.store(3);}}
             if(command==1 && window){channel->desiredVisibility.store(1);OutProcShowGuiForeground(window);channel->status.store(2);}
+			if(command==4)publishState(true);
         } else if(!journal || detached)return;
         const auto elapsed=GetTickCount64()-started;
         if(channel && command==1 && !window && channel->inheritedVisibility.load()) {

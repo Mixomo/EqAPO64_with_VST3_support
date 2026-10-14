@@ -87,6 +87,16 @@ void CommentFilterGUI::prepareDelete()
 
 void CommentFilterGUI::on_actionPowerOn_toggled(bool checked)
 {
+	// The power action serializes this row immediately. Let a stateful child
+	// obtain a final live checkpoint first, otherwise the reactivated row can
+	// hand an older preset back to the retained DSP instance.
+	if (!child->checkpointPendingEdits())
+	{
+		ui->actionPowerOn->blockSignals(true);
+		ui->actionPowerOn->setChecked(!checked);
+		ui->actionPowerOn->blockSignals(false);
+		return;
+	}
 	child->setModuleBypassed(!checked);
 
 	emit updateModel();

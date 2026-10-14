@@ -106,6 +106,4 @@ foreach ($app in $apps) {
 	Copy-Item -LiteralPath $exe.FullName -Destination (Join-Path $outDir "$($app.Name).exe") -Force
 }
 
-Copy-Item -LiteralPath (Join-Path $root "Setup\FabFilterLocalService.ps1") -Destination (Join-Path $outDir "FabFilterLocalService.ps1") -Force
-Copy-Item -LiteralPath (Join-Path $root "Setup\GoodhertzLocalService.ps1") -Destination (Join-Path $outDir "GoodhertzLocalService.ps1") -Force
 Write-Host "Qt applications are ready in $outDir."

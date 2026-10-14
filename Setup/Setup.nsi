@@ -392,9 +392,10 @@ Section "-Install"
   File "${BINPATH}\Benchmark.exe"
   File "${BINPATH}\VoicemeeterClient.exe"
   File "${BINPATH_EDITOR}\Editor.exe"
-  ; Optional registration tool: no licenses are copied during installation.
-  File "FabFilterLocalService.ps1"
-  File "GoodhertzLocalService.ps1"
+  ; Remove obsolete profile-registration tools from earlier installations.
+  Delete "$INSTDIR\FabFilterLocalService.ps1"
+  Delete "$INSTDIR\GoodhertzLocalService.ps1"
+  Delete "$INSTDIR\VSTUserLicensing.ps1"
   ; User-context VST DSP is an intrinsic engine policy, not an optional component.
   DeleteRegValue HKLM ${FEATURE_REGPATH} "UserBroker"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Run" "EqualizerAPOUserBroker" '$\"$INSTDIR\EqApoOutProcHost.exe$\" --user-broker'

@@ -28,6 +28,7 @@
 #include "CustomStyle.h"
 #include "MainWindow.h"
 #include "helpers/UIAudit.h"
+#include "helpers/EditorSessionAudit.h"
 #include "helpers/CommercialGuiAudit.h"
 #include "helpers/UserBrokerStartup.h"
 #include "helpers/RegistryHelper.h"
@@ -87,6 +88,10 @@ int main(int argc, char* argv[])
         }
         const auto protectedLiveIndex=application.arguments().indexOf("--protected-row-live-audit");
         if(protectedLiveIndex>=0){if(application.arguments().size()<protectedLiveIndex+3)return 2;return runProtectedRowLiveAudit(application,application.arguments()[protectedLiveIndex+1],application.arguments()[protectedLiveIndex+2]);}
+        const auto editorSessionIndex=application.arguments().indexOf("--state-session-audit");
+        if(editorSessionIndex>=0){if(application.arguments().size()<editorSessionIndex+3)return 2;return runEditorSessionAudit(application,application.arguments()[editorSessionIndex+1],application.arguments()[editorSessionIndex+2]);}
+        const auto saveCloseIndex=application.arguments().indexOf("--save-on-close-audit");
+        if(saveCloseIndex>=0){if(application.arguments().size()<saveCloseIndex+2)return 2;return runSaveOnCloseAudit(application,application.arguments()[saveCloseIndex+1]);}
         const auto saveAuditIndex=application.arguments().indexOf("--configuration-save-audit");
         const auto commercialIndex=application.arguments().indexOf("--commercial-gui-audit");
         if(commercialIndex>=0){if(application.arguments().size()<commercialIndex+5)return 2;return runCommercialGuiAudit(application,application.arguments()[commercialIndex+1],application.arguments()[commercialIndex+2],application.arguments()[commercialIndex+3]=="OUTPROC",application.arguments()[commercialIndex+4].toUInt());}

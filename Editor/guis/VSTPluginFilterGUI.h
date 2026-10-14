@@ -47,9 +47,12 @@ public:
 	void loadPreferences(const QVariantMap& prefs) override;
 	void storePreferences(QVariantMap& prefs) override;
 	void prepareDelete() override;
+	bool checkpointPendingEdits() override;
     bool flushPendingEdits() override;
     ManagedGuiProcess::Shutdown getGuiShutdownDiagnostics() const noexcept {return lastGuiProcess?lastGuiProcess->shutdown():ManagedGuiProcess::Shutdown{};}
     DWORD getOwnedGuiProcessId() const noexcept {return guiProcess?guiProcess->processId():0;}
+    struct PersistenceAudit {bool panel,pending,failed;std::uint64_t generation,sequence;};
+    PersistenceAudit getPersistenceAudit()const noexcept{return {nativeDspPanel,nativeStatePending,nativeStateSaveFailed,nativeSnapshotGeneration,nativeSnapshotSequence};}
 
 private slots:
 	void on_openPanelButton_clicked();

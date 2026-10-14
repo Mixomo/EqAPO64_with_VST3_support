@@ -143,12 +143,14 @@ public:
                     nativeView->x.store(previous->x.load());nativeView->y.store(previous->y.load());
                     nativeView->width.store(previous->width.load());nativeView->height.store(previous->height.load());
                     const auto pending=previous->command.load(std::memory_order_acquire);
-                    const auto status=previous->status.load(std::memory_order_acquire);
                     auto visibility=previous->desiredVisibility.load(std::memory_order_acquire);
                     if(pending==3)visibility=0;
                     else if(pending==2)visibility=2;
-                    else if(pending==1 || status==2)visibility=1;
-                    else if(status==3)visibility=2;
+                    // Window status is an asynchronous acknowledgement, not user
+                    // intent. A stale "visible" status must not reopen a closed
+                    // panel or override a hidden panel on graph replacement.
+                    // A queued show is also obsolete if X/hide changed intent
+                    // before that command was consumed by the old worker.
                     nativeView->desiredVisibility.store(visibility);
                     nativeView->inheritedVisibility.store(visibility!=0);
                     if(visibility)nativeView->command.store(1);
@@ -351,7 +353,7 @@ inline NativeViewSnapshot nativeViewControlGeneration(const std::wstring& sessio
                     // before it receives the asynchronous show request.
                     if(command==1 && result.pid)AllowSetForegroundWindow(result.pid);
                     if(command)view->inheritedVisibility.store(false,std::memory_order_release);
-                    if(command)view->desiredVisibility.store(command==1?1u:command==2?2u:0u,std::memory_order_release);
+                    if(command>=1 && command<=3)view->desiredVisibility.store(command==1?1u:command==2?2u:0u,std::memory_order_release);
                     if(command)view->command.store(command);
                     if(consume) {ParameterEvent event;for(unsigned n=0;n<256 && view->edits.consume(generation,event);++n)result.edits.push_back(event);}
                     if(command==3)view->editorPid.store(0);

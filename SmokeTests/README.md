@@ -86,6 +86,88 @@ owned VST2 fixture.
   expected gain; there is valid audio rather than a permanently dry or silent path.
 - **Output:** `transport.json`.
 
+### Panel Visibility During Graph Replacement
+
+With `-WithFixtureGui`, the Core suite runs `EqApoPanelVisibility` against the
+owned VST2 and VST3 fixtures. It restores state and replaces a generation while
+the previous window status still reports visible, covering closed, visible and
+hidden user intent. Closed panels must remain closed, hidden panels must remain
+hidden, and explicit opening and closing must continue to work without reopening
+on subsequent service ticks. Results are saved in `panel-visibility-vst2.log` and
+`panel-visibility-vst3.log`. This is an isolated host regression; it does not certify
+installed audiodg behavior.
+
+### VST State Persistence
+
+With `-WithFixtureGui`, Core also runs `EqApoStatePersistence` for VST2 and VST3.
+It checks that an edited parameter survives panel closure and reopening, a full
+preset checkpoint restores it in a fresh instance, and bypass/reactivation retains
+the live value and hidden window. A changed preset must still replace the value.
+Expected: `PASS` in `state-persistence-vst2.log` and `state-persistence-vst3.log`.
+
+`EqApoBrokerStatePersistence` runs three test-owned candidate workers as a
+six-channel chain, edits actual fixture panels, closes and reopens them, then
+reactivates each worker with the unchanged saved preset. It verifies complete
+checkpoints, exact edited parameter values, the retained worker/window, and finite,
+non-silent PCM. Expected: `PASS` in `broker-state-persistence.log`. The test never
+uses or stops the installed singleton broker and does not modify config.txt,
+Windows Audio services or audiodg.
+
+For an external third plug-in, the executable accepts the candidate host path,
+VST3 fixture path, VST2 fixture path, external plug-in path, writable parameter ID
+and expected normalized value. An optional external GUI driver can set
+`EQAPO_STATE_TEST_GUI_READY` to a private signal-file path; the driver acknowledges
+completion by creating the same path with `.done` appended within ten seconds.
+With expected value `-1`, the reference is the changed
+checkpoint published while the panel is still open, before closing or bypassing.
+External automation support depends on the plug-in. These remain isolated worker
+tests, not installed-device playback certification.
+
+### Editor Restart And Audio Stream Recreation
+
+For these additional opt-in tests, supply a freshly built Editor with its Qt
+runtime deployed alongside it:
+
+```powershell
+.\SmokeTests\run-smoke.ps1 -Suite Core -WithFixtureGui -EditorPath '<EDITOR_EXE_PATH>'
+```
+
+`test_editor_stream_persistence.py` starts actual Editor processes using only a
+temporary three-fixture configuration. It edits parameters, closes the Editor
+through MainWindow's normal close handler, opens a new Editor process, and then
+injects source changes and short pauses while panels remain open, then recreates
+private DSP streams at 44100 and 48000 Hz from the saved file. Expected:
+complete VST states remain on disk, the edited values are restored, and simply
+opening the Editor neither rewrites state nor opens plug-in panels. Results are
+in `editor-stream-<ID>/result.json` and its broker log.
+
+`--save-on-close-audit` holds an exclusive read handle on its own temporary
+configuration while a change is being saved, then requests Editor closure before
+the file becomes writable. Expected: the Editor completes its queued save before
+exiting; `editor-save-on-close/result.json` reports `PASS`.
+
+These tests use the real Editor and candidate DSP workers, but do not replace the
+installed config.txt, restart Windows Audio, or play songs/videos through a device.
+
+### Configuration Graph Processing
+
+`EqApoConfigurationGraph` loads an explicit configuration with the production
+parser and filter factories, processes stereo test PCM, then reloads the same
+chain. It checks finite, non-silent output and reports processing failures from
+isolated VST workers. It does not change the installed configuration or audio
+services. Supply an existing configuration with valid Include and plug-in paths;
+a missing Include prevents validation of that part of the chain.
+
+```powershell
+cmake --build _build\smoke --config Release --target EqApoConfigurationGraph
+.\_build\smoke\Release\EqApoConfigurationGraph.exe '<CONFIG_TXT_PATH>' 48000
+```
+
+Supported sample rates are 44100, 48000 and 96000 Hz. Expected: JSON status `PASS`,
+finite output, processors available and non-zero RMS before and after reload.
+Parser diagnostics are written to stderr. This verifies offline engine processing;
+it does not certify device playback, installed audiodg, or the intended EQ curve.
+
 ### Host Recovery
 
 The same transport tool runs with `--faults` when the duration is at least 25 seconds.

@@ -38,6 +38,7 @@ public:
 	void loadPreferences(const QVariantMap& prefs) override;
 	void storePreferences(QVariantMap& prefs) override;
 	void prepareDelete() override;
+    bool flushPendingEdits() override {return child->flushPendingEdits();}
 
 private slots:
 	void on_actionPowerOn_toggled(bool checked);
