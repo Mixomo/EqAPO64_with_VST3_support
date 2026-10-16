@@ -10,7 +10,7 @@
   </a>
 </div>
 
-**Branch: `v3-rewrite`.**
+**Branch: `v3-rewrite`** | **Last updates are now in branch `v3-exp`**
 
 This repository is a restructured Windows fork based on [TheFireKahuna/equalizerAPO64](https://github.com/TheFireKahuna/equalizerAPO64), with the goal of keeping the familiar Equalizer APO workflow while adding
 native VST3 plug-in support.
