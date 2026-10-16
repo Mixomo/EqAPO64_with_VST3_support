@@ -188,35 +188,12 @@ void VSTPluginFilterGUI::prepareDelete()
 
 bool VSTPluginFilterGUI::checkpointPendingEdits()
 {
-    if (!nativeDspPanel)
-        return !nativeStateSaveFailed;
-
-    // Command 4 asks the already-processing component for a complete preset
-    // checkpoint. Unlike close, it leaves the native panel and its animation
-    // attached to the same DSP instance.
-    const auto previousSequence=nativeSnapshotSequence;
-    if (!nativePanelControl(4).available)
-        return false;
-
-    QEventLoop waiting;
-    QTimer poll, deadline;
-    poll.setInterval(16);
-    deadline.setSingleShot(true);
-    connect(&poll,&QTimer::timeout,&waiting,[this,previousSequence,&waiting]() {
-        on_idle();
-        if (nativeStateSaveFailed || !nativeDspPanel || nativeSnapshotSequence>previousSequence)
-            waiting.quit();
-    });
-    connect(&deadline,&QTimer::timeout,&waiting,&QEventLoop::quit);
-    poll.start();
-    deadline.start(1500);
-    waiting.exec();
-
-    if (nativeSnapshotSequence<=previousSequence || nativeStateSaveFailed)
-    {
-        ui->statusLabel->setText(tr("Could not save the VST state before changing bypass"));
-        return false;
-    }
+    // Bypass is an immediate engine control and must never become unavailable
+    // because a worker checkpoint or IPC response is late. The live DSP worker
+    // retains the same VST instance across bypass; command 4 is a best-effort
+    // state flush, and the editor continues collecting its snapshot afterward.
+    if (nativeDspPanel)
+        nativePanelControl(4);
     return true;
 }
 

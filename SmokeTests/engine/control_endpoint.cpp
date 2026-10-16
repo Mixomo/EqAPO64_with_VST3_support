@@ -54,7 +54,8 @@ int wmain(int argc,wchar_t** argv) {
         check(replacement->consume(cachedEvent) && cachedEvent.id==91 && cachedEvent.generation==replacement->getGeneration(),"cached event routes exclusively to replacement");
         auto* nextView=static_cast<NativeViewChannel*>(MapViewOfFile(replacement->getNativeViewHandle(),FILE_MAP_ALL_ACCESS,0,0,sizeof(NativeViewChannel)));
         check(nextView && nextView->predecessor==original->getGeneration(),"GUI predecessor retained");
-        check(nextView->editorPid.load()==GetCurrentProcessId() && nextView->command.load()==1,"visible GUI lease inherited");
+        check(nextView->editorPid.load()==GetCurrentProcessId() && nextView->command.load()==0
+            && nextView->inheritedVisibility.load(),"visible GUI lease is inherited without auto-opening another panel");
         check(nextView->x.load()==123 && nextView->y.load()==234,"GUI position inherited");
         check(!completeNativeViewTransfer(session,*nextView) && previousView->command.load()==0,"unattached replacement cannot close original GUI");
         nextView->status.store(2);check(completeNativeViewTransfer(session,*nextView),"attached replacement completes transfer");
@@ -134,7 +135,8 @@ int wmain(int argc,wchar_t** argv) {
             ControlEndpointOwner after;check(after.create(leaseSession,sid,12345,48000,2,false),"replace visibility generation");
             auto* next=static_cast<NativeViewChannel*>(MapViewOfFile(after.getNativeViewHandle(),FILE_MAP_ALL_ACCESS,0,0,sizeof(NativeViewChannel)));
             check(next && next->desiredVisibility.load()==intent,"replacement preserves user intent despite stale visible status");
-            check(next->command.load()==(intent?1u:0u),"closed panel receives no automatic open request");
+            check(next->command.load()==0 && next->inheritedVisibility.load()==(intent!=0),
+                "replacement preserves visibility intent without generating a duplicate Show command");
             UnmapViewOfFile(next);UnmapViewOfFile(oldView);
         }
         std::cout<<"PASS actual named control IPC / identity / replacement / cleanup / restricted DACL\n";return 0;

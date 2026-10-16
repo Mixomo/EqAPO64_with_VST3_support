@@ -30,6 +30,8 @@ public:
         char mode[32]{};GetEnvironmentVariableA("EQAPO_FIXTURE_FAULT",mode,sizeof(mode));
         hangs=std::strcmp(mode,"hang")==0;crashes=std::strcmp(mode,"crash")==0;
         latencyChanges=std::strcmp(mode,"latency")==0;reloads=std::strcmp(mode,"reload")==0;
+        rejectRepeatedLayouts=std::strcmp(mode,"layout-once")==0 || std::strcmp(mode,"io-layout-once")==0;
+        ioChanges=std::strcmp(mode,"io-layout-once")==0;
         float32Only=std::strcmp(mode,"float32")==0;
         float64Only=std::strcmp(mode,"float64")==0;
         context->queryInterface(IComponentHandler::iid,reinterpret_cast<void**>(&handler));
@@ -54,6 +56,7 @@ public:
     uint32 PLUGIN_API getLatencySamples() override {return latency;}
     tresult PLUGIN_API setActive(TBool active) override {if(active) {history={};position=0;}return AudioEffect::setActive(active);}
     tresult PLUGIN_API setBusArrangements(SpeakerArrangement* in,int32 ni,SpeakerArrangement* out,int32 no) override {
+        if(rejectRepeatedLayouts && acceptedLayout)return kResultFalse;
         if(ni!=2 || no!=1) return kResultFalse;
 #ifdef EQAPO_FIXTURE_ROUTING
         const auto supported=[](SpeakerArrangement layout){return layout==SpeakerArr::kStereo || layout==SpeakerArr::k51 || layout==SpeakerArr::k71Music;};
@@ -68,7 +71,7 @@ public:
 #else
         if(SpeakerArr::getChannelCount(in[0])>8 || in[0]!=out[0]) return kResultFalse;
 #endif
-        getAudioInput(0)->setArrangement(in[0]);getAudioInput(1)->setArrangement(in[1]);getAudioOutput(0)->setArrangement(out[0]);return kResultOk;
+        getAudioInput(0)->setArrangement(in[0]);getAudioInput(1)->setArrangement(in[1]);getAudioOutput(0)->setArrangement(out[0]);acceptedLayout=true;return kResultOk;
     }
     tresult PLUGIN_API getState(IBStream* stream) override {
         const uint32 marker=0x434F4D50;stream->write((void*)&marker,sizeof(marker));return stream->write(&gain,sizeof(gain));
@@ -86,10 +89,10 @@ public:
         if(float64Only && data.symbolicSampleSize!=kSample64)return kResultFalse;
         if(!data.numSamples) return kResultOk;
         if(!data.processContext || !(data.processContext->state&ProcessContext::kPlaying))return kResultFalse;
-        if(position>=24000 && !restarted && handler && (latencyChanges || reloads)) {
+        if(position>=24000 && !restarted && handler && (latencyChanges || reloads || ioChanges)) {
             restarted=true;
             if(latencyChanges)latency=129;
-            handler->restartComponent(latencyChanges ? kLatencyChanged : kReloadComponent);
+            handler->restartComponent(latencyChanges ? kLatencyChanged : reloads ? kReloadComponent : kIoChanged);
         }
         if(position>=48000) {
             if(hangs)Sleep(INFINITE);
@@ -133,6 +136,7 @@ private:
     std::array<std::array<double,258>,8> history{};
     std::uint64_t position=0;double gain=1;bool hangs=false,crashes=false;
     uint32 latency=257;bool latencyChanges=false,reloads=false,float32Only=false,float64Only=false,restarted=false;
+    bool rejectRepeatedLayouts=false,acceptedLayout=false,ioChanges=false;
     IComponentHandler* handler=nullptr;
 };
 class FixtureView final:public IPlugView,public IPlugViewContentScaleSupport {

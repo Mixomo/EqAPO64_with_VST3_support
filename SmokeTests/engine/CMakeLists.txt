@@ -135,6 +135,12 @@ target_link_directories(EqApoContractTests PRIVATE "${DEPS}/lib" "${EQAPO_ROOT}/
 target_link_libraries(EqApoContractTests PRIVATE "${EQAPO_ROOT}/x64/Release/Common.lib" version shlwapi authz crypt32 dbghelp sndfile fftw3 muparserx ole32 oleaut32 advapi32 user32 shell32 uuid winmm)
 
 add_test(NAME core_contracts COMMAND EqApoContractTests)
+add_executable(EqApoVstLayoutPersistence vst_layout_persistence.cpp "${EQAPO_ROOT}/helpers/MemoryHelper.cpp")
+target_include_directories(EqApoVstLayoutPersistence PRIVATE "${EQAPO_ROOT}" "${EQAPO_ROOT}/third_party/vst3sdk" "${DEPS}/include" "${EQAPO_ROOT}/third_party/muparserx/parser")
+target_compile_definitions(EqApoVstLayoutPersistence PRIVATE UNICODE _UNICODE MUP_USE_WIDE_STRING NOMINMAX)
+target_link_directories(EqApoVstLayoutPersistence PRIVATE "${DEPS}/lib" "${EQAPO_ROOT}/third_party/build/muparserx-x64-windows/Release")
+target_link_libraries(EqApoVstLayoutPersistence PRIVATE "${EQAPO_ROOT}/x64/Release/Common.lib" version shlwapi authz crypt32 dbghelp sndfile fftw3 muparserx ole32 oleaut32 advapi32 user32 shell32 uuid winmm)
+add_test(NAME vst3_bus_layout_persistence COMMAND EqApoVstLayoutPersistence "$<TARGET_FILE:EqApoFixture>")
 add_executable(EqApoParameterMailboxTests parameter_mailbox.cpp)
 target_include_directories(EqApoParameterMailboxTests PRIVATE "${EQAPO_ROOT}")
 add_test(NAME parameter_mailbox_contracts COMMAND EqApoParameterMailboxTests)

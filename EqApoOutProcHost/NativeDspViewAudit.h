@@ -70,6 +70,12 @@ class NativeDspViewAudit {
             self = static_cast<NativeDspViewAudit*>(reinterpret_cast<CREATESTRUCTW*>(l)->lpCreateParams);
             SetWindowLongPtrW(window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(self));
         }
+        if (self && message == WM_SIZE && w != SIZE_MINIMIZED && self->effect
+            && self->effect->editorSupportsUserResize()) {
+            RECT client{};
+            if (GetClientRect(window, &client))
+                self->effect->resizeEditorView(client.right - client.left, client.bottom - client.top);
+        }
         if(self && self->channel && (message==WM_MOVE || message==WM_SIZE) && !IsIconic(window)) {
             RECT rect{};if(GetWindowRect(window,&rect)) {
                 self->channel->x.store(rect.left);self->channel->y.store(rect.top);
@@ -89,7 +95,8 @@ class NativeDspViewAudit {
     }
     void resize(int width, int height) {
         if (!window || !child || width<=0 || height<=0) return;
-        RECT rect{0,0,width,height}; AdjustWindowRectEx(&rect,WS_OVERLAPPEDWINDOW,FALSE,0);
+        const auto style=static_cast<DWORD>(GetWindowLongPtrW(window,GWL_STYLE));
+        RECT rect{0,0,width,height}; AdjustWindowRectExForDpi(&rect,style,FALSE,0,GetDpiForWindow(window));
         SetWindowPos(window,nullptr,0,0,rect.right-rect.left,rect.bottom-rect.top,SWP_NOMOVE|SWP_NOZORDER|SWP_NOACTIVATE);
         SetWindowPos(child,nullptr,0,0,width,height,SWP_NOZORDER|SWP_NOACTIVATE);
     }
@@ -208,12 +215,17 @@ public:
             WNDCLASSW wc{};wc.lpfnWndProc=windowProc;wc.hInstance=GetModuleHandleW(nullptr);
             wc.lpszClassName=L"EqApoNativeDspViewAudit";wc.hCursor=LoadCursor(nullptr,IDC_ARROW);
             RegisterClassW(&wc);
-            window=CreateWindowExW(0,wc.lpszClassName,L"Equalizer APO - VST",WS_OVERLAPPEDWINDOW|WS_CLIPCHILDREN,
+            constexpr DWORD fixedEditorStyle=WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX|WS_CLIPCHILDREN;
+            window=CreateWindowExW(0,wc.lpszClassName,L"Equalizer APO - VST",fixedEditorStyle,
                                   channel?channel->x.load():CW_USEDEFAULT,channel?channel->y.load():CW_USEDEFAULT,440,260,nullptr,nullptr,wc.hInstance,this);
             if(window)child=CreateWindowExW(0,L"STATIC",L"",WS_CHILD|WS_VISIBLE|WS_CLIPCHILDREN,0,0,400,200,window,nullptr,wc.hInstance,nullptr);
             short width=400,height=200;
             if(!child || !effect->startEditing(child,&width,&height)) {event("VIEW_OPEN_FAILED");close();if(channel)channel->status.store(6);return;}
             if(channel && channel->desiredVisibility.load()==0 && channel->command.load()==3){close();return;}
+            if(effect->editorSupportsUserResize()) {
+                SetWindowLongPtrW(window,GWL_STYLE,GetWindowLongPtrW(window,GWL_STYLE)|WS_THICKFRAME);
+                SetWindowPos(window,nullptr,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER|SWP_NOACTIVATE|SWP_FRAMECHANGED);
+            }
             effect->setSizeWindowFunc([this](int w,int h){resize(w,h);});
             resize(width,height);
             const bool hidden=channel && channel->desiredVisibility.load()==2;

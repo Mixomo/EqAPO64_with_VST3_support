@@ -41,6 +41,13 @@ This branch is a rewrite of the VST engine from the **2.0.4 experimental branch*
 - Reproducible installer build using local dependencies under `third_party/`.
 - NSIS-based safe installer packaging with multiple optional components for saving disk space and customize the installation.
 
+## Changelog | 3.0.3 (16/10/2026)
+
+- Normalizes the maximum response of bundled Voxengo IMreverbs to 0 dB when loaded, including existing configurations, while keeping the bundled source WAVs unchanged.
+- Preserves VST3 input and output bus layouts in saved plug-in state, including distinct layouts that use the same number of channels, and restores them when the processor is recreated.
+- Keeps bypass controls responsive while a VST panel is open and preserves the existing panel during worker handoff.
+- Supports plug-in-declared resizing for VST3 editors while keeping VST2 editor windows fixed-size. The Maximize button is disabled to prevent VST GUI glitches.
+
 ## Changelog | 3.0.2 (14/10/2026)
 
 - Fixed VST state persistence when closing and reopening Configuration Editor. The editor now flushes pending VST GUI edits through the module wrapper before shutdown and waits for pending configuration writes to finish.

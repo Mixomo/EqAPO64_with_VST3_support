@@ -31,6 +31,7 @@ function Check-Exit([string]$step) { if ($LASTEXITCODE -ne 0) { throw "$step fai
 & cmake -S (Join-Path $PSScriptRoot 'engine') -B $build -A x64 *> (Join-Path $results 'configure.log')
 Check-Exit 'Configure harnesses'
 $targets=@('EqApoRealtimeTests','EqApoContractTests','EqApoTransportSmoke','EqApoVstSmoke','EqApoFixture','EqApoFixtureVST2',
+	'EqApoVstLayoutPersistence',
     'EqApoOutProcConfigTests','EqApoGuiObjectTests','EqApoConfigurationWriterTests','EqApoMonitorMailboxTests',
     'EqApoParameterMailboxTests','EqApoControlEndpointTests','EqApoHandleInheritanceTests','EqApoBrokerStreamScopeTests','EqApoPanelIdleTests',
     'EqApoAsymmetricFixture','EqApoAsymmetricChannels','EqApoRoutingFixture','EqApoPanelVisibility',
@@ -64,6 +65,8 @@ if ($Suite -in @('Core','All')) {
     }
     & (Join-Path $release 'EqApoContractTests.exe') $fixture --builtin *> (Join-Path $results 'contracts.log')
     Check-Exit 'Core and built-in contracts'
+    & (Join-Path $release 'EqApoVstLayoutPersistence.exe') $fixture *> (Join-Path $results 'vst3-bus-layout-persistence.log')
+    Check-Exit 'VST3 custom bus layout persistence'
     if ($WithFixtureGui) {
         & (Join-Path $release 'EqApoPanelIdleTests.exe') $fixture *> (Join-Path $results 'panel-idle.log')
         Check-Exit 'Retained graph panel animation'
@@ -90,6 +93,18 @@ if ($Suite -in @('Core','All')) {
     if ($WithFixtureGui) { $smokeArgs += '--gui' }
     & (Join-Path $release 'EqApoVstSmoke.exe') @smokeArgs
     Check-Exit 'VST3 fixture'
+    $hadFixtureFault=Test-Path Env:\EQAPO_FIXTURE_FAULT
+    $previousFixtureFault=$env:EQAPO_FIXTURE_FAULT
+    try {
+        $env:EQAPO_FIXTURE_FAULT='io-layout-once'
+        $layoutArgs=@('--plugin',$fixture,'--out',(Join-Path $results 'fixture-vst3-io-restart-layout.json'),'--iterations','100')
+        & (Join-Path $release 'EqApoVstSmoke.exe') @layoutArgs *> (Join-Path $results 'fixture-vst3-io-restart-layout.log')
+        $layoutExit=$LASTEXITCODE
+    }
+    finally {
+        if($hadFixtureFault){$env:EQAPO_FIXTURE_FAULT=$previousFixtureFault}else{Remove-Item Env:\EQAPO_FIXTURE_FAULT -ErrorAction SilentlyContinue}
+    }
+    if($layoutExit -ne 0){throw "VST3 layout retention after plugin I/O restart failed ($layoutExit). Results: $results"}
     $smokeArgs=@('--plugin',(Join-Path $release 'EqApoFixtureVST2.dll'),'--out',(Join-Path $results 'fixture-vst2.json'))
     if ($WithFixtureGui) { $smokeArgs += '--gui' }
     & (Join-Path $release 'EqApoVstSmoke.exe') @smokeArgs

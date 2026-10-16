@@ -88,6 +88,10 @@ public:
 	void prepareForProcessing(float sampleRate, int blockSize, bool preferDouble = true);
 	void writeToEffect(const std::wstring& chunkData, const std::unordered_map<std::wstring, float>& paramMap);
 	void readFromEffect(std::wstring& chunkData, std::unordered_map<std::wstring, float>& paramMap) const;
+	bool getVST3BusArrangements(std::vector<Steinberg::Vst::SpeakerArrangement>& inputs,
+		std::vector<Steinberg::Vst::SpeakerArrangement>& outputs) const;
+	bool setVST3BusArrangements(const std::vector<Steinberg::Vst::SpeakerArrangement>& inputs,
+		const std::vector<Steinberg::Vst::SpeakerArrangement>& outputs);
 
 	void startProcessing();
 	void processDoubleReplacing(double** inputArray, double** outputArray, int frameCount);
@@ -99,6 +103,8 @@ public:
     std::recursive_mutex& editorMirrorMutex() const {return mirrorMutex;}
 
 	bool startEditing(HWND hWnd, short* width, short* height);
+	bool editorSupportsUserResize() const;
+	bool resizeEditorView(int width, int height);
     bool hasActiveEditorGesture() const noexcept {return activeEditGestures.load(std::memory_order_acquire)>0;}
 	void doIdle();
 	void stopEditing();
@@ -148,6 +154,9 @@ private:
 	int vst3OutputBusCount = 0;
 	int vst3InputChannelCount = 0;
 	int vst3OutputChannelCount = 0;
+	// The requested device shape is negotiated once per shape transition. A
+	// prepare/restart alone must not overwrite a layout selected by the plugin.
+	int vst3NegotiatedChannelCount = -1;
 	bool vst3SupportsDouble = false;
     bool preferDoubleProcessing=true;
     bool stateRestoreValid=true;

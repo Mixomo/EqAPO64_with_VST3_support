@@ -491,8 +491,6 @@ void ConvolutionFilterGUI::selectBundledImpulseResponse(const QString& absoluteP
 	const QString relativePath = configInfo.absoluteDir().relativeFilePath(absolutePath);
 	ui->pathLineEdit->setText(QDir::toNativeSeparators(relativePath.startsWith("..") ? absolutePath : relativePath));
 	updateFileInfo();
-	// updateFileInfo performs conversion only for a sample-rate mismatch.
-	// Merely selecting an already-compatible IR must preserve its gain/path.
 	emit updateModel();
 }
 
@@ -708,6 +706,11 @@ void ConvolutionFilterGUI::updateFileInfo()
 					ui->labelSampleRateValue->setText(tr("%0 Hz").arg(sampleRate));
 					sf_close(file);
 
+					const QDir bundledRoot(QDir(QCoreApplication::applicationDirPath()).absoluteFilePath("IRs"));
+					const QString bundledRelativePath = QDir::fromNativeSeparators(
+						bundledRoot.relativeFilePath(QFileInfo(path).absoluteFilePath()));
+					const bool isVoxengoIMreverb = bundledRelativePath.startsWith("IMreverbs/", Qt::CaseInsensitive);
+
 					if (sampleRate != deviceSampleRate)
 					{
 						error = tr("The loaded IR/FIR sample rate does not match the current device sample rate (%0 Hz). Creating a matched, normalized FIR...").arg(deviceSampleRate);
@@ -720,6 +723,19 @@ void ConvolutionFilterGUI::updateFileInfo()
 								return;
 							error = tr("The loaded IR/FIR sample rate does not match the current device sample rate (%0 Hz), and automatic matching failed. Export a native FIR from GraphicEQ or choose a matching IR/FIR.").arg(deviceSampleRate);
 						}
+					}
+					else if (isVoxengoIMreverb && !autoMatchingSampleRate)
+					{
+						// These WAVs are sample-peak normalized, but their convolution
+						// magnitude can still exceed 0 dB by a wide margin. Normalize the
+						// FIR response for bundled Voxengo files on initial load as well as
+						// menu selection, without rewriting the shipped source IR.
+						autoMatchingSampleRate = true;
+						const bool normalized = matchDeviceSampleRate(false);
+						autoMatchingSampleRate = false;
+						if (normalized)
+							return;
+						error = tr("The bundled Voxengo IMreverb could not be normalized. The original IR remains selected.");
 					}
 				}
 			}

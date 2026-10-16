@@ -208,8 +208,10 @@ static EmptyVST3ParameterChanges emptyVST3ParameterChanges;
 static EmptyVST3EventList emptyVST3EventList;
 
 static const char vst2StateEnvelopeMagic[] = "EAPOVST2STATE2\n";
-static const char vst3StateEnvelopeMagic[] = "EAPOVST3STATE3\n";
+static const char vst3StateEnvelopeMagic[] = "EAPOVST3STATE4\n";
+static const char vst3PreviousStateEnvelopeMagic[] = "EAPOVST3STATE3\n";
 static const char vst3LegacyStateEnvelopeMagic[] = "EAPOVST3STATE2\n";
+static constexpr uint32_t maxSavedVST3BusCount = 64;
 static const wchar_t vst3ParamIdPrefix[] = L"#";
 static bool parseParameterId(const wstring& text,ParamID& id) {
     if(text.size()<2 || text[0]!=L'#')return false;
@@ -277,6 +279,41 @@ static bool readUInt32(const vector<char>& data, size_t& offset, uint32_t& value
 		return false;
 	memcpy(&value, data.data() + offset, sizeof(value));
 	offset += sizeof(value);
+	return true;
+}
+
+static void appendUInt64(vector<char>& data, uint64_t value)
+{
+	appendBytes(data, &value, sizeof(value));
+}
+
+static bool readUInt64(const vector<char>& data, size_t& offset, uint64_t& value)
+{
+	if (offset + sizeof(value) > data.size()) return false;
+	memcpy(&value, data.data() + offset, sizeof(value));
+	offset += sizeof(value);
+	return true;
+}
+
+static void appendArrangements(vector<char>& data, const vector<SpeakerArrangement>& arrangements)
+{
+	appendUInt32(data, static_cast<uint32_t>(arrangements.size()));
+	for (const auto arrangement : arrangements) appendUInt64(data, static_cast<uint64_t>(arrangement));
+}
+
+static bool readArrangements(const vector<char>& data, size_t& offset, vector<SpeakerArrangement>& arrangements)
+{
+	uint32_t count = 0;
+	if (!readUInt32(data, offset, count) || count > maxSavedVST3BusCount
+		|| offset + size_t(count) * sizeof(uint64_t) > data.size()) return false;
+	vector<SpeakerArrangement> decoded;
+	decoded.reserve(count);
+	for (uint32_t i = 0; i < count; ++i) {
+		uint64_t arrangement = 0;
+		if (!readUInt64(data, offset, arrangement)) return false;
+		decoded.push_back(static_cast<SpeakerArrangement>(arrangement));
+	}
+	arrangements.swap(decoded);
 	return true;
 }
 
@@ -365,28 +402,38 @@ static bool parseVST2Envelope(const vector<char>& data, vector<char>& chunk, uno
 	return readBlob(data, offset, chunk) && readParamMap(data, offset, paramMap);
 }
 
-static vector<char> makeVST3Envelope(const vector<char>& componentState, const vector<char>& controllerState, const unordered_map<wstring, float>& paramMap,const wstring& uid)
+static vector<char> makeVST3Envelope(const vector<char>& componentState, const vector<char>& controllerState,
+	const unordered_map<wstring, float>& paramMap, const wstring& uid,
+	const vector<SpeakerArrangement>& inputArrangements, const vector<SpeakerArrangement>& outputArrangements)
 {
 	vector<char> data;
 	appendBytes(data, vst3StateEnvelopeMagic, strlen(vst3StateEnvelopeMagic));
     const string asciiUid(uid.begin(),uid.end());
     appendBytes(data,asciiUid.data(),asciiUid.size());
+	appendArrangements(data, inputArrangements);
+	appendArrangements(data, outputArrangements);
 	appendBlob(data, componentState);
 	appendBlob(data, controllerState);
 	appendParamMap(data, paramMap);
 	return data;
 }
 
-static bool parseVST3Envelope(const vector<char>& data, vector<char>& componentState, vector<char>& controllerState, unordered_map<wstring, float>& paramMap,wstring& uid)
+static bool parseVST3Envelope(const vector<char>& data, vector<char>& componentState, vector<char>& controllerState,
+	unordered_map<wstring, float>& paramMap, wstring& uid,
+	vector<SpeakerArrangement>& inputArrangements, vector<SpeakerArrangement>& outputArrangements)
 {
     const bool legacy=hasEnvelopeMagic(data,vst3LegacyStateEnvelopeMagic);
-    if(!legacy && !hasEnvelopeMagic(data,vst3StateEnvelopeMagic))return false;
-    size_t offset=strlen(legacy ? vst3LegacyStateEnvelopeMagic : vst3StateEnvelopeMagic);
+    const bool previous=hasEnvelopeMagic(data,vst3PreviousStateEnvelopeMagic);
+    const bool current=hasEnvelopeMagic(data,vst3StateEnvelopeMagic);
+    if(!legacy && !previous && !current)return false;
+    size_t offset=strlen(legacy ? vst3LegacyStateEnvelopeMagic : previous ? vst3PreviousStateEnvelopeMagic : vst3StateEnvelopeMagic);
     uid.clear();
+    inputArrangements.clear();outputArrangements.clear();
     if(!legacy) {
         if(data.size()<offset+32)return false;
         uid.assign(data.begin()+offset,data.begin()+offset+32);offset+=32;
     }
+	if (current && (!readArrangements(data, offset, inputArrangements) || !readArrangements(data, offset, outputArrangements))) return false;
 	return readBlob(data, offset, componentState) && readBlob(data, offset, controllerState) && readParamMap(data, offset, paramMap);
 }
 
@@ -739,7 +786,23 @@ bool VSTPluginInstance::initializeVST3()
 
 	vst3InputBusCount = max(0, vst3Component->getBusCount(kAudio, kInput));
 	vst3OutputBusCount = max(0, vst3Component->getBusCount(kAudio, kOutput));
-	configureVST3Buses(2);
+	// Discover the plugin-announced layout without changing it. The Editor and
+	// scanner can inspect the component before a device shape is supplied.
+	auto discoverMainBus = [&](BusDirection direction, int busCount, int& mainIndex, int& channelCount) {
+		mainIndex = -1;
+		channelCount = 0;
+		for (int32 i = 0; i < busCount; ++i) {
+			BusInfo info{};
+			if (vst3Component->getBusInfo(kAudio, direction, i, info) != kResultOk)
+				continue;
+			if (mainIndex < 0 && info.busType == kMain) {
+				mainIndex = i;
+				channelCount = max(0, info.channelCount);
+			}
+		}
+	};
+	discoverMainBus(kInput, vst3InputBusCount, vst3InputMainIndex, vst3InputChannelCount);
+	discoverMainBus(kOutput, vst3OutputBusCount, vst3OutputMainIndex, vst3OutputChannelCount);
 
 	vst3SupportsDouble = vst3Processor->canProcessSampleSize(kSample64) == kResultOk;
 	if (!vst3SupportsDouble && vst3Processor->canProcessSampleSize(kSample32) != kResultOk)
@@ -818,6 +881,8 @@ int VSTPluginInstance::getUsedChannelCount() const
 void VSTPluginInstance::setUsedChannelCount(int count)
 {
 	usedChannelCount = count;
+	if (library->isVST3() && count > 0 && count != vst3NegotiatedChannelCount)
+		configureVST3Buses(count);
 }
 
 float VSTPluginInstance::getSampleRate() const
@@ -872,7 +937,9 @@ void VSTPluginInstance::prepareForProcessing(float sampleRate, int blockSize, bo
 
 		this->sampleRate = sampleRate;
         preparedBlockSize=blockSize;
-		configureVST3Buses(usedChannelCount > 0 ? usedChannelCount : max(vst3InputChannelCount, vst3OutputChannelCount));
+		const int requestedChannels = usedChannelCount > 0 ? usedChannelCount : max(vst3InputChannelCount, vst3OutputChannelCount);
+		if (requestedChannels > 0 && requestedChannels != vst3NegotiatedChannelCount)
+			configureVST3Buses(requestedChannels);
 		ProcessSetup setup;
 		setup.processMode = processLevel == 4 ? kOffline : kRealtime;
 		setup.symbolicSampleSize = vst3SupportsDouble && preferDoubleProcessing ? kSample64 : kSample32;
@@ -906,9 +973,10 @@ void VSTPluginInstance::writeToEffect(const std::wstring& chunkData, const std::
 				vector<char> componentState;
 				vector<char> controllerState;
 				unordered_map<wstring, float> envelopeParamMap;
+				vector<SpeakerArrangement> savedInputs, savedOutputs;
 				wstring stateUid;
-                const bool isEnvelope = parseVST3Envelope(data, componentState, controllerState, envelopeParamMap,stateUid);
-                if((hasEnvelopeMagic(data,vst3StateEnvelopeMagic)||hasEnvelopeMagic(data,vst3LegacyStateEnvelopeMagic)) && !isEnvelope)return;
+                const bool isEnvelope = parseVST3Envelope(data, componentState, controllerState, envelopeParamMap,stateUid,savedInputs,savedOutputs);
+                if((hasEnvelopeMagic(data,vst3StateEnvelopeMagic)||hasEnvelopeMagic(data,vst3PreviousStateEnvelopeMagic)||hasEnvelopeMagic(data,vst3LegacyStateEnvelopeMagic)) && !isEnvelope)return;
                 if(!stateUid.empty() && _wcsicmp(stateUid.c_str(),library->getVST3ClassUID(vst3ClassIndex).c_str())!=0)return;
 				if (!isEnvelope)
 					componentState = data;
@@ -931,6 +999,12 @@ void VSTPluginInstance::writeToEffect(const std::wstring& chunkData, const std::
 					stream->release();
                     if(!accepted)return;
 				}
+				// Some VST3 presets select a speaker layout with the same channel
+				// count (for example 7.1 Standard vs Panorama). Component state and
+				// parameter values do not reliably serialize this host-level bus
+				// choice, so restore the exact arrangements captured in the envelope.
+				if (isEnvelope && (!savedInputs.empty() || !savedOutputs.empty()))
+					setVST3BusArrangements(savedInputs, savedOutputs);
 
 				unordered_map<wstring,float> paramsToApply=isEnvelope ? envelopeParamMap : unordered_map<wstring,float>();
                 stateRestoreValid=true;
@@ -1075,6 +1149,57 @@ std::wstring VSTPluginInstance::getCurrentParameterText(std::uint32_t id) const
     return StringHelper::toWString(text,CP_UTF8);
 }
 
+bool VSTPluginInstance::getVST3BusArrangements(vector<SpeakerArrangement>& inputs,
+	vector<SpeakerArrangement>& outputs) const
+{
+	std::lock_guard<recursive_mutex> mirrorLock(mirrorMutex);
+	if (!library->isVST3() || !vst3Component || !vst3Processor) return false;
+	const int inputCount = vst3Component->getBusCount(kAudio, kInput);
+	const int outputCount = vst3Component->getBusCount(kAudio, kOutput);
+	if (inputCount < 0 || outputCount < 0 || inputCount > int(maxSavedVST3BusCount)
+		|| outputCount > int(maxSavedVST3BusCount)) return false;
+	vector<SpeakerArrangement> nextInputs(inputCount), nextOutputs(outputCount);
+	for (int32 i = 0; i < inputCount; ++i)
+		if (vst3Processor->getBusArrangement(kInput, i, nextInputs[i]) != kResultOk) return false;
+	for (int32 i = 0; i < outputCount; ++i)
+		if (vst3Processor->getBusArrangement(kOutput, i, nextOutputs[i]) != kResultOk) return false;
+	inputs.swap(nextInputs); outputs.swap(nextOutputs);
+	return true;
+}
+
+bool VSTPluginInstance::setVST3BusArrangements(const vector<SpeakerArrangement>& inputs,
+	const vector<SpeakerArrangement>& outputs)
+{
+	std::lock_guard<recursive_mutex> mirrorLock(mirrorMutex);
+	if (!library->isVST3() || !vst3Component || !vst3Processor) return false;
+	const int inputCount = vst3Component->getBusCount(kAudio, kInput);
+	const int outputCount = vst3Component->getBusCount(kAudio, kOutput);
+	if (inputCount < 0 || outputCount < 0
+		|| inputs.size() != size_t(inputCount) || outputs.size() != size_t(outputCount)
+		|| inputs.size() > maxSavedVST3BusCount || outputs.size() > maxSavedVST3BusCount) return false;
+	vector<SpeakerArrangement> requestedInputs(inputs), requestedOutputs(outputs);
+	const auto result = vst3Processor->setBusArrangements(
+		requestedInputs.empty() ? nullptr : requestedInputs.data(), int32(requestedInputs.size()),
+		requestedOutputs.empty() ? nullptr : requestedOutputs.data(), int32(requestedOutputs.size()));
+	if (result != kResultOk) return false;
+	vector<SpeakerArrangement> actualInputs, actualOutputs;
+	if (!getVST3BusArrangements(actualInputs, actualOutputs)
+		|| actualInputs != inputs || actualOutputs != outputs) return false;
+	if (vst3InputMainIndex >= 0 && vst3InputMainIndex < int(vst3InputBusInfo.size())) {
+		BusInfo info{};
+		if (vst3Component->getBusInfo(kAudio, kInput, vst3InputMainIndex, info) == kResultOk)
+			vst3InputChannelCount = (std::max)(0, info.channelCount);
+	}
+	if (vst3OutputMainIndex >= 0 && vst3OutputMainIndex < int(vst3OutputBusInfo.size())) {
+		BusInfo info{};
+		if (vst3Component->getBusInfo(kAudio, kOutput, vst3OutputMainIndex, info) == kResultOk)
+			vst3OutputChannelCount = (std::max)(0, info.channelCount);
+	}
+	vst3InputBuffers.resize(inputs.size()); vst3OutputBuffers.resize(outputs.size());
+	if (usedChannelCount > 0) vst3NegotiatedChannelCount = usedChannelCount;
+	return true;
+}
+
 void VSTPluginInstance::readFromEffect(std::wstring& chunkData, std::unordered_map<std::wstring, float>& paramMap) const
 {
     std::lock_guard<std::recursive_mutex> mirrorLock(mirrorMutex);
@@ -1085,6 +1210,8 @@ void VSTPluginInstance::readFromEffect(std::wstring& chunkData, std::unordered_m
 
 		vector<char> componentState;
 		vector<char> controllerState;
+		vector<SpeakerArrangement> inputArrangements, outputArrangements;
+		getVST3BusArrangements(inputArrangements, outputArrangements);
 		if (vst3Component != NULL)
 		{
 			VST3MemoryStream* stream = new VST3MemoryStream();
@@ -1110,9 +1237,10 @@ void VSTPluginInstance::readFromEffect(std::wstring& chunkData, std::unordered_m
 			}
 		}
 
-		if (!componentState.empty() || !controllerState.empty())
+		if (!componentState.empty() || !controllerState.empty() || !inputArrangements.empty() || !outputArrangements.empty())
 		{
-			vector<char> envelope = makeVST3Envelope(componentState, controllerState, paramMap,library->getVST3ClassUID(vst3ClassIndex));
+			vector<char> envelope = makeVST3Envelope(componentState, controllerState, paramMap,
+				library->getVST3ClassUID(vst3ClassIndex), inputArrangements, outputArrangements);
 			base64Encode(envelope, chunkData);
 		}
 		return;
@@ -1567,6 +1695,36 @@ bool VSTPluginInstance::getEditorSize(int* width, int* height)
     *width=w;*height=h;return true;
 }
 
+bool VSTPluginInstance::editorSupportsUserResize() const
+{
+	return library && library->isVST3() && vst3View && vst3View->canResize() == kResultTrue;
+}
+
+bool VSTPluginInstance::resizeEditorView(int width, int height)
+{
+	if (!editorSupportsUserResize() || resizingEditor || width <= 0 || height <= 0
+		|| width > 32767 || height > 32767)
+		return false;
+
+	ViewRect constrained{0, 0, width, height};
+	resizingEditor = true;
+	const auto constraintResult = vst3View->checkSizeConstraint(&constrained);
+	if (constraintResult != kResultOk || constrained.getWidth() <= 0 || constrained.getHeight() <= 0
+		|| constrained.getWidth() > 32767 || constrained.getHeight() > 32767)
+	{
+		resizingEditor = false;
+		return false;
+	}
+
+	// Resize the native child and its top-level frame before notifying the view,
+	// as required by the VST3 host contract. The guard prevents WM_SIZE from
+	// recursively initiating another plugin resize.
+	onSizeWindow(constrained.getWidth(), constrained.getHeight());
+	const auto result = vst3View->onSize(&constrained);
+	resizingEditor = false;
+	return result == kResultOk;
+}
+
 void VSTPluginInstance::onSizeWindow(int w, int h)
 {
     if(insidePluginProcess) {
@@ -1581,6 +1739,7 @@ void VSTPluginInstance::onSizeWindow(int w, int h)
 
 void VSTPluginInstance::releaseVST3()
 {
+	vst3NegotiatedChannelCount = -1;
 	if (!library->isVST3())
 		return;
 
@@ -1685,6 +1844,7 @@ void VSTPluginInstance::configureVST3Buses(int requestedChannelCount)
     if(vst3InputMainIndex>=0 && vst3Component->getBusInfo(kAudio,kInput,vst3InputMainIndex,info)==kResultOk) vst3InputChannelCount=info.channelCount;
     if(vst3OutputMainIndex>=0 && vst3Component->getBusInfo(kAudio,kOutput,vst3OutputMainIndex,info)==kResultOk) vst3OutputChannelCount=info.channelCount;
     vst3InputBuffers.resize(inputs.size()); vst3OutputBuffers.resize(outputs.size());
+	vst3NegotiatedChannelCount = requestedChannelCount;
 }
 
 SpeakerArrangement VSTPluginInstance::speakerArrangementForChannelCount(int count) const

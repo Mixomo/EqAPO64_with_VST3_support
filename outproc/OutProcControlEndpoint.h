@@ -153,7 +153,11 @@ public:
                     // before that command was consumed by the old worker.
                     nativeView->desiredVisibility.store(visibility);
                     nativeView->inheritedVisibility.store(visibility!=0);
-                    if(visibility)nativeView->command.store(1);
+                    // Preserve the visibility intent for the predecessor's
+                    // native view transfer. Do not turn inherited visibility
+                    // into a fresh Show request: the replacement worker may
+                    // open a second editor before the old worker rebinds the
+                    // existing HWND to this generation.
                 }
                 if(editor)CloseHandle(editor);
             }

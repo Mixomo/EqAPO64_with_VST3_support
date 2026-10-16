@@ -16,11 +16,15 @@ def main():
     args.output.mkdir(parents=True, exist_ok=True)
     root = args.editor.resolve().parent / 'IRs'
     owned = root / '_smoke_owned_fixture'
+    voxengo_owned = root / 'IMreverbs' / '_smoke_owned_fixture'
     if owned.exists():
         raise RuntimeError('Owned fixture already exists; refusing to overwrite')
+    if voxengo_owned.exists():
+        raise RuntimeError('Owned Voxengo fixture already exists; refusing to overwrite')
     nested = owned / 'nested'
     nested.mkdir(parents=True)
     files = [owned / 'gain-half.wav', nested / 'gain-quarter.WAV']
+    voxengo_file = voxengo_owned / 'positive-response.wav'
     try:
         for file, gain in zip(files, (.5, .25)):
             with wave.open(str(file), 'wb') as output:
@@ -28,6 +32,13 @@ def main():
                 output.setsampwidth(2)
                 output.setframerate(48000)
                 output.writeframes(struct.pack('<h', int(gain * 32768)) + bytes(126))
+        voxengo_owned.mkdir(parents=True)
+        with wave.open(str(voxengo_file), 'wb') as output:
+            output.setnchannels(1)
+            output.setsampwidth(2)
+            output.setframerate(48000)
+            output.writeframes(struct.pack('<4h', 16384, 16384, 16384, 16384) + bytes(120))
+        voxengo_source = voxengo_file.read_bytes()
         with (args.output / 'selector.log').open('wb') as log:
             run = subprocess.run([str(args.editor.resolve()), '--bundled-ir-audit',
                                   str(args.output.resolve())], stdout=log,
@@ -54,6 +65,40 @@ def main():
             rows.append({'file': str(file), 'status': 'PASS' if passed else 'FAIL',
                          'expected_db': expected, 'measured_db': data['peak_db'],
                          'restored': selected['restored'], 'analysis_evidence': report.name})
+        selected = next((row for row in selector['selections']
+                         if row['label'] == voxengo_file.name), None)
+        if selected is None:
+            rows.append({'file': str(voxengo_file), 'status': 'FAIL', 'reason': 'NOT_ENUMERATED'})
+        else:
+            raw_report = args.output / 'voxengo-raw.json'
+            raw_config = args.output / 'voxengo-raw.txt'
+            raw_config.write_text('Convolution: ' + str(voxengo_file.resolve()) + '\n', encoding='utf-8')
+            with (args.output / 'voxengo-raw.log').open('wb') as log:
+                raw_analysis = subprocess.run([str(args.analyzer.resolve()), str(raw_config.resolve()),
+                                                str(raw_report.resolve()), '65536'], stdout=log,
+                                               stderr=subprocess.STDOUT, timeout=25)
+            raw_data = json.loads(raw_report.read_text())
+            report = args.output / 'voxengo-normalized.json'
+            config = args.output / 'voxengo-normalized.txt'
+            config.write_text('Convolution: ' + selected['parameters'] + '\n', encoding='utf-8')
+            with (args.output / 'voxengo-normalized.log').open('wb') as log:
+                analysis = subprocess.run([str(args.analyzer.resolve()), str(config.resolve()),
+                                           str(report.resolve()), '65536'], stdout=log,
+                                          stderr=subprocess.STDOUT, timeout=25)
+            data = json.loads(report.read_text())
+            generated = Path(selected['path']).resolve()
+            passed = (raw_analysis.returncode == 0 and raw_data['peak_db'] > 5.9
+                      and analysis.returncode == 0 and selected['restored']
+                      and voxengo_file.read_bytes() == voxengo_source
+                      and 'generated-ir' in [part.lower() for part in generated.parts]
+                      and abs(data['peak_db']) < .02
+                      and max(point['gain_db'] for point in data['response']) < .02)
+            rows.append({'file': str(voxengo_file), 'status': 'PASS' if passed else 'FAIL',
+                         'raw_peak_db': raw_data['peak_db'], 'expected_normalized_db': 0.0,
+                         'measured_normalized_db': data['peak_db'],
+                         'source_unchanged': voxengo_file.read_bytes() == voxengo_source,
+                         'restored': selected['restored'], 'normalized_copy': str(generated),
+                         'analysis_evidence': report.name})
         passed = run.returncode == 0 and selector['selector_visible'] and all(row['status'] == 'PASS' for row in rows)
         (args.output / 'result.json').write_text(json.dumps({
             'status': 'PASS' if passed else 'FAIL', 'cases': rows,
@@ -65,8 +110,12 @@ def main():
         for file in files:
             if file.exists():
                 file.unlink()
+        if voxengo_file.exists():
+            voxengo_file.unlink()
         nested.rmdir()
         owned.rmdir()
+        if voxengo_owned.exists():
+            voxengo_owned.rmdir()
         if not any(root.iterdir()):
             root.rmdir()
 

@@ -1,4 +1,4 @@
-"""Actual Editor session and cold-stream persistence with three owned fixtures."""
+"""Actual Editor session and audio-stream persistence with three owned fixtures."""
 import argparse
 import ctypes as C
 import json

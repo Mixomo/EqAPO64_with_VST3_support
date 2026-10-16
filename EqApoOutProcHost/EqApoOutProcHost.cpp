@@ -372,7 +372,8 @@ static void resizeGuiWindowToEditor(int width, int height)
 	SetWindowPos(guiChild, NULL, 0, 0, width, height, SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
 
 	RECT rect = { 0, 0, width, height };
-    AdjustWindowRectExForDpi(&rect, WS_OVERLAPPEDWINDOW, FALSE, 0, GetDpiForWindow(guiWindow));
+	const auto style = static_cast<DWORD>(GetWindowLongPtrW(guiWindow, GWL_STYLE));
+	AdjustWindowRectExForDpi(&rect, style, FALSE, 0, GetDpiForWindow(guiWindow));
 	SetWindowPos(guiWindow, NULL, 0, 0, rect.right - rect.left, rect.bottom - rect.top,
 		SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
 }
@@ -423,8 +424,11 @@ static LRESULT CALLBACK guiWindowProc(HWND hwnd, UINT message, WPARAM wParam, LP
         if(lParam) {auto* rect=reinterpret_cast<RECT*>(lParam);SetWindowPos(hwnd,nullptr,rect->left,rect->top,rect->right-rect->left,rect->bottom-rect->top,SWP_NOZORDER|SWP_NOACTIVATE);}
         return 0;
     case WM_SIZE:
-        if (guiChild != NULL)
+		if (guiChild != NULL && wParam != SIZE_MINIMIZED) {
 			SetWindowPos(guiChild, NULL, 0, 0, LOWORD(lParam), HIWORD(lParam), SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+			if (guiEffect && guiEffect->editorSupportsUserResize())
+				guiEffect->resizeEditorView(LOWORD(lParam), HIWORD(lParam));
+		}
 		return 0;
 	case WM_TIMER:
 		if (guiShowEvent != NULL && WaitForSingleObject(guiShowEvent, 0) == WAIT_OBJECT_0)
@@ -567,15 +571,17 @@ static int runVstGuiHost(const std::wstring& vstConfigPath, const std::wstring& 
         effect->setParameterSink([sessionId,controlIdentity](std::uint32_t id,double value,int offset) {
             EqApoControl::publishControl(sessionId,controlIdentity,id,value,offset);
         });
-		effect->writeToEffect(config.chunkData, config.paramMap);
+        effect->setUsedChannelCount(2);
         effect->prepareForProcessing(48000,512);
+		effect->writeToEffect(config.chunkData, config.paramMap);
 		effect->setSizeWindowFunc([](int width, int height) {
 			resizeGuiWindowToEditor(width, height);
 		});
 
 		registerGuiWindowClasses();
+		constexpr DWORD fixedEditorStyle = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_CLIPCHILDREN | WS_CLIPSIBLINGS;
 		guiWindow = CreateWindowExW(0, guiWindowClassName, effect->getName().empty() ? L"VST Plugin" : effect->getName().c_str(),
-			WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
+			fixedEditorStyle,
 			CW_USEDEFAULT, CW_USEDEFAULT, 640, 480, NULL, NULL, GetModuleHandleW(NULL), NULL);
 		if (guiWindow == NULL)
 			exitCode = 14;
@@ -598,6 +604,10 @@ static int runVstGuiHost(const std::wstring& vstConfigPath, const std::wstring& 
 			exitCode = 16;
 		else
 		{
+			if (effect->editorSupportsUserResize()) {
+				SetWindowLongPtrW(guiWindow, GWL_STYLE, GetWindowLongPtrW(guiWindow, GWL_STYLE) | WS_THICKFRAME);
+				SetWindowPos(guiWindow, NULL, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+			}
 			resizeGuiWindowToEditor(width, height);
 			showGuiWindow();
 			UpdateWindow(guiWindow);
@@ -847,11 +857,11 @@ static bool initializeVst(OutProcAudioHeader* header, VstRuntime& vst)
 
     firstEffect->setUsedChannelCount(int(header->channelCount));
     startupAudit("COMPONENT_INITIALIZED");
-    firstEffect->writeToEffect(vst.config.chunkData,vst.config.paramMap);
-    startupAudit("FIRST_PRESET_RESTORED");
     firstEffect->prepareForProcessing(float(header->sampleRate),int(header->maxFrames));
     startupAudit("FIRST_SETUP_COMPLETED");
     if(!firstEffect->isProcessingValid()) {vst.failed=true;return false;}
+	firstEffect->writeToEffect(vst.config.chunkData,vst.config.paramMap);
+	startupAudit("FIRST_PRESET_RESTORED");
 	const int inputs = firstEffect->numInputs();
 	const int outputs = firstEffect->numOutputs();
     if(inputs<0 || outputs<=0 || inputs>64 || outputs>64) {vst.failed=true;return false;}
@@ -884,10 +894,10 @@ static bool initializeVst(OutProcAudioHeader* header, VstRuntime& vst)
 		else
 		effect->setUsedChannelCount(vst.effectChannelCount);
 		if(i!=0) {
-			effect->writeToEffect(vst.config.chunkData, vst.config.paramMap);
-            startupAudit("PRESET_RESTORED");
-			effect->prepareForProcessing(static_cast<float>(header->sampleRate), static_cast<int>(header->maxFrames));
+            effect->prepareForProcessing(static_cast<float>(header->sampleRate), static_cast<int>(header->maxFrames));
             startupAudit("PROCESSING_SETUP_COMPLETED");
+			effect->writeToEffect(vst.config.chunkData, vst.config.paramMap);
+			startupAudit("PRESET_RESTORED");
 		}
 		effect->startProcessing();
         startupAudit("PROCESSOR_ACTIVATED");

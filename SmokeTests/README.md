@@ -52,6 +52,7 @@ to demonstrate. A failure stops the master and leaves the existing logs availabl
 | `EqApoPanelIdleTests` (with `-WithFixtureGui`) | A retained session stops receiving audio while its panel remains open; meter decay, hidden updates, resumed processing and panel closure. | The meter falls to zero and returns on resumed audio; the same worker/window survives Hide/Show, with no orphan after close. Output: `panel-idle.log`. |
 | `EqApoHandleInheritanceTests` | Child-process inheritance of session handles. | The explicitly allowed handle reaches the child; unrelated handles do not. |
 | `EqApoContractTests` | Built-in DSP contracts and VST3 fixture class/state/parameter behavior, automation offsets, malformed-state rejection and native scale/resize requests. | DSP matches its reference, state restores correctly, invalid classes/state are rejected and repeated scale changes do not accumulate size errors. |
+| `EqApoVstLayoutPersistence` | Saves a noncanonical 7.1 VST3 speaker arrangement and restores it into a fresh instance with the same channel count. | The exact arrangement is retained instead of reverting to the host's canonical 7.1 layout. |
 
 The contract executable also supports additional VST2 persistence checks when a
 VST2 fixture path is supplied as its extra argument. The master instead runs the
@@ -67,6 +68,10 @@ owned VST2 fixture.
   sends parameter updates, then stores/restores state.
 - **What it tests:** module/component lifecycle, I/O negotiation, valid processing,
   finite audio and parameter-state round-trip.
+- **VST3 layout retention check:** Core runs the fixture again with a test fault
+  that rejects any second bus-layout negotiation and requests one plug-in I/O
+  restart. Expected: processing and parameter/state checks still pass, proving
+  the host re-prepares the same selected layout instead of negotiating it again.
 - **Expected:** all supported combinations finish without a crash or NaN/Inf;
   restored parameters match their saved values. Unsupported double precision is
   skipped according to the plug-in capability.
@@ -287,7 +292,7 @@ responses must match the effect being checked.
 | `test_analysis_response.py` | Fixture gain/latency, text encoding, failure handling and optional configured response cases. | Analyzer data matches each specified response/latency or the intended failure status. |
 | `test_analysis_revisions.py` | Replacing analysis requests while changing a parameter. | Final request/result revisions agree and the final response matches the latest requested gain. |
 | `test_analysis_shapes.py` | Static response shapes selected using the effect's parameter metadata. | Measured response matches the configured shape oracle, not merely its center gain. |
-| `test_bundled_ir_selection.py` | Bundled IR enumeration, editor selection/restoration and convolution analysis. | Each expected IR is available, selection restores and analyzed response matches its reference. |
+| `test_bundled_ir_selection.py` | Bundled IR enumeration and restoration, plus a Voxengo IMreverb fixture whose raw response exceeds 0 dB. | The fixture's generated copy peaks at 0 dB, its source remains unchanged, and the other fixture IRs retain their reference response. |
 
 ### Installer Data And Result Aggregation
 
