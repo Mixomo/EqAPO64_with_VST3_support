@@ -336,7 +336,8 @@ struct NativeViewSnapshot {bool available=false;unsigned status=0,pid=0,snapshot
 inline NativeViewSnapshot nativeViewControlGeneration(const std::wstring& session,std::uint64_t identity,
     std::uint64_t generation,unsigned command=0,bool consume=false) {
     NativeViewSnapshot result;if(!validSessionId(session))return result;
-    if(!generation || command>3)return result;
+    // 1 show, 2 hide, 3 close, 4 checkpoint the complete state (no visibility change).
+    if(!generation || command>4)return result;
     const auto user=currentUserSid();if(user.empty())return result;
     for(const auto* space:{L"Global\\",L"Local\\"}) {
         const auto prefix=std::wstring(space)+L"EqApoControl_"+session+L"_"+user;
@@ -356,9 +357,14 @@ inline NativeViewSnapshot nativeViewControlGeneration(const std::wstring& sessio
                     // The foreground editor delegates activation to this exact VST worker
                     // before it receives the asynchronous show request.
                     if(command==1 && result.pid)AllowSetForegroundWindow(result.pid);
-                    if(command)view->inheritedVisibility.store(false,std::memory_order_release);
-                    if(command>=1 && command<=3)view->desiredVisibility.store(command==1?1u:command==2?2u:0u,std::memory_order_release);
-                    if(command)view->command.store(command);
+                    if(command==4) {
+                        // Never replace a pending visibility request with a checkpoint.
+                        unsigned idle=0;view->command.compare_exchange_strong(idle,4u);
+                    } else {
+                        if(command)view->inheritedVisibility.store(false,std::memory_order_release);
+                        if(command>=1 && command<=3)view->desiredVisibility.store(command==1?1u:command==2?2u:0u,std::memory_order_release);
+                        if(command)view->command.store(command);
+                    }
                     if(consume) {ParameterEvent event;for(unsigned n=0;n<256 && view->edits.consume(generation,event);++n)result.edits.push_back(event);}
                     if(command==3)view->editorPid.store(0);
                 } else result.available=false;

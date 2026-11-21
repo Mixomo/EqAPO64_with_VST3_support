@@ -19,6 +19,8 @@
 
 #include <QSize>
 
+class QWidget;
+
 #pragma once
 
 class GUIHelper
@@ -30,4 +32,9 @@ public:
 	static double logicalValue(int pixel);
 	static double logicalZoomValue(double zoom);
     static bool isDarkMode();
+    // Theme-aware colors for module notices. Hardcoded .ui palettes assumed a
+    // light theme (yellow box / black text), which is unreadable in dark mode.
+    static void applyWarningBoxPalette(QWidget* widget);
+    static void applyErrorTextPalette(QWidget* widget);
+    static void applyStatusTextPalette(QWidget* widget);
 };

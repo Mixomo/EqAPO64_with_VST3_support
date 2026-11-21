@@ -1,5 +1,8 @@
 #pragma once
 #include "outproc/OutProcGuiObjects.h"
+#include <algorithm>
+#include <deque>
+#include <functional>
 
 // Interactive production DSP view with optional bounded engineering journal.
 // Session-zero/service hosting still requires a user-session DSP broker.
@@ -19,6 +22,16 @@ class NativeDspViewAudit {
     OutProcVSTConfig snapshot;
     std::wstring snapshotDirectory,snapshotPath;
     std::uint64_t observedState=0,savedState=0;
+    // Presets this worker published to the Editor. When the Editor commits
+    // one of them, the incoming configuration is an echo of live state and
+    // must not be re-applied over newer live edits.
+    std::deque<std::size_t> publishedPresets;
+    static std::size_t presetKey(const std::wstring& chunk){return std::hash<std::wstring>{}(chunk)^(chunk.size()*0x9e3779b97f4a7c15ull);}
+    void rememberPublished(const std::wstring& chunk){
+        if(chunk.empty())return;
+        publishedPresets.push_back(presetKey(chunk));
+        while(publishedPresets.size()>32)publishedPresets.pop_front();
+    }
     ULONGLONG lastStateEdit=0,lastSnapshotAttempt=0;
     bool createSnapshotDirectory(){
         if(!snapshotDirectory.empty())return true;
@@ -59,7 +72,7 @@ class NativeDspViewAudit {
         OutProcVSTConfig next=snapshot;effect->readFromEffect(next.chunkData,next.paramMap);
         if(!force && next.chunkData==snapshot.chunkData && next.paramMap==snapshot.paramMap){savedState=generation;return;}
         if(!OutProcWriteVSTConfig(snapshotPath,next)){channel->snapshotError.store(ERROR_WRITE_FAULT);return;}
-        snapshot=std::move(next);
+        snapshot=std::move(next);rememberPublished(snapshot.chunkData);
         if(!channel->snapshotSequence.load())wcscpy_s(channel->snapshotPath,snapshotPath.c_str());
         channel->snapshotError.store(0);channel->snapshotSequence.fetch_add(1,std::memory_order_release);
         savedState=generation;event("COMPLETE_STATE_PUBLISHED");
@@ -139,6 +152,13 @@ public:
     }
     ~NativeDspViewAudit() { close();if(editorProcess)CloseHandle(editorProcess);if(channel){channel->hostPid.store(0);channel->status.store(0);}if(!snapshotPath.empty())DeleteFileW(snapshotPath.c_str());if(!snapshotDirectory.empty())RemoveDirectoryW(snapshotDirectory.c_str()); }
     HWND getWindowForAudit()const noexcept{return window;}
+    // True when the requested preset only carries state this worker produced.
+    bool isPublishedPreset(const OutProcVSTConfig& preset)const{
+        if(preset.chunkData.empty() || !preset.paramMap.empty())return false;
+        const auto key=presetKey(preset.chunkData);
+        return std::find(publishedPresets.begin(),publishedPresets.end(),key)!=publishedPresets.end();
+    }
+    void forgetPublishedPresets(){publishedPresets.clear();}
     void recordRelayForAudit(unsigned id,double value,unsigned count){if(journal)journal<<"{\"event\":\"REBIND_GUI_RELAY\",\"id\":"<<id<<",\"value\":"<<value<<",\"count\":"<<count<<"}\n"<<std::flush;}
     bool rebind(EqApoControl::NativeViewChannel* replacement,const std::wstring& session,std::uint64_t identity){
         if(GetCurrentThreadId()!=ownerThread || !replacement || !EqApoControl::validSessionId(session)
@@ -155,6 +175,11 @@ public:
         if(nextCommand==3)visibility=0;
         else if(nextCommand==2)visibility=2;
         else if(nextCommand==1 && !replacement->inheritedVisibility.load())visibility=1;
+        // Saving the configuration replaces the generation. Only an explicit
+        // Show request may raise a window; a retained intent of "visible" for a
+        // window that is not on screen keeps it hidden instead of popping it up.
+        const bool explicitShow=pending==1 || (nextCommand==1 && !replacement->inheritedVisibility.load());
+        if(visibility==1 && window && !IsWindowVisible(window) && !explicitShow)visibility=2;
         if(!visibility && window)close();
         else if(visibility==2 && window)ShowWindow(window,SW_HIDE);
         else if(visibility==1 && window && !IsWindowVisible(window))OutProcShowGuiForeground(window);
@@ -195,7 +220,7 @@ public:
             if(owner!=editorProcessId){if(editorProcess)CloseHandle(editorProcess);editorProcess=nullptr;editorProcessId=owner;if(owner)editorProcess=OpenProcess(SYNCHRONIZE,FALSE,owner);}
             if(owner && (!editorProcess || WaitForSingleObject(editorProcess,0)==WAIT_OBJECT_0)){channel->editorPid.store(0);close();return;}
             if(command==3){close();return;}
-            if(command==2){channel->desiredVisibility.store(2);if(window){ShowWindow(window,SW_HIDE);channel->status.store(3);}}
+            if(command==2){channel->desiredVisibility.store(2);if(window){ShowWindow(window,SW_HIDE);channel->status.store(3);publishState(true);}}
             if(command==1 && window){channel->desiredVisibility.store(1);OutProcShowGuiForeground(window);channel->status.store(2);}
 			if(command==4)publishState(true);
         } else if(!journal || detached)return;
@@ -208,7 +233,7 @@ public:
             attempted=true;if(channel)channel->status.store(5);effect=processingEffect;
             if(!effect){event("NO_PROCESSING_COMPONENT");detached=true;return;}
             observedState=savedState=effect->getStateGeneration();
-            effect->readFromEffect(snapshot.chunkData,snapshot.paramMap);
+            effect->readFromEffect(snapshot.chunkData,snapshot.paramMap);rememberPublished(snapshot.chunkData);
             if(channel)effect->setParameterSink([this](std::uint32_t id,double value,int offset){
                 relayEdit(id,value,offset);
             },true);

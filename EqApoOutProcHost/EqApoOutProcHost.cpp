@@ -1423,7 +1423,11 @@ static int runHostMain(int argc, wchar_t** argv)
                     for(unsigned i=0;i<64;++i){dspState.vst.floatInputs[i]=dspState.vst.floatInputStorage[i].data();dspState.vst.floatOutputs[i]=dspState.vst.floatOutputStorage[i].data();}
                     dspState.vst.maxFrames=nextHeader->maxFrames;
                 }
-                const bool presetChanged=OutProcVSTPresetChanged(requestedPreset,nextBroker->config);
+                // A preset the Editor received from this worker's own panel is
+                // an echo of live state, possibly older than the newest edits.
+                const bool echoedLiveState=nativeViewAudit.isPublishedPreset(nextBroker->config);
+                const bool presetChanged=!echoedLiveState && OutProcVSTPresetChanged(requestedPreset,nextBroker->config);
+                if(presetChanged)nativeViewAudit.forgetPublishedPresets();
                 for(auto& effect:dspState.vst.effects){if(presetChanged)effect->writeToEffect(nextBroker->config.chunkData,nextBroker->config.paramMap);effect->prepareForProcessing(float(nextHeader->sampleRate),int(nextHeader->maxFrames));if(!effect->isProcessingValid())TerminateProcess(GetCurrentProcess(),26);effect->startProcessing();}
                 requestedPreset=nextBroker->config;
                 if(!nativeViewAudit.rebind(nextView,sessionId,nextBroker->metadata->identity))TerminateProcess(GetCurrentProcess(),25);
@@ -1478,8 +1482,13 @@ static int runHostMain(int argc, wchar_t** argv)
             }
             if(GetTickCount64()-rebindStarted>=6000 && rebindRelayed!=2)TerminateProcess(GetCurrentProcess(),25);
         }
+        // Output parameters (meters) and controller mirrors were forwarded
+        // above without owning the component. Taking DSP ownership for them
+        // made the audio thread skip blocks while a native panel repainted on
+        // every setParamNormalized, which crackled only with the panel open.
+        // Only restart requests need exclusive component ownership.
         bool pending=false;
-        for(const auto& effect:dspState.vst.effects)pending|=effect->hasControlRequests();
+        for(const auto& effect:dspState.vst.effects)pending|=effect->pendingRestartMask()!=0;
         if(!pending)continue;
         unsigned expected=0;
         if(!owner.compare_exchange_strong(expected,2,std::memory_order_acquire))continue;

@@ -42,6 +42,7 @@
 #include "helpers/RegistryHelper.h"
 #include "ConvolutionFilterGUI.h"
 #include "helpers/FeatureState.h"
+#include "Editor/helpers/GUIHelper.h"
 #include "ui_ConvolutionFilterGUI.h"
 
 static PROPERTYKEY endpointGuidPropertyKey = {{0x1da5d803, 0xd492, 0x4edd, 0x8c, 0x23, 0xe0, 0xc0, 0xff, 0xee, 0x7f, 0x0e}, 4};
@@ -234,6 +235,7 @@ ConvolutionFilterGUI::ConvolutionFilterGUI(const QString& configPath, unsigned d
 	: ui(new Ui::ConvolutionFilterGUI), deviceGuid(deviceGuid), deviceSampleRate(deviceSampleRate)
 {
 	ui->setupUi(this);
+	GUIHelper::applyErrorTextPalette(ui->labelError);
     ui->pathLineEdit->setPathMode();
 
 	this->configPath = configPath;

@@ -48,9 +48,13 @@ int wmain(int argc,wchar_t** argv){
             {
                 NativeDspViewAudit panel(next,session,config);panel.service(effect.get());
                 const auto window=panel.getWindowForAudit();
-                check(intent?window!=nullptr:window==nullptr,"closed generation stays closed; explicit open remains supported");
-                if(window)check(bool(IsWindowVisible(window))==(intent==1),"hidden generation must not become visible");
-                if(intent==0){next->command.store(1);next->desiredVisibility.store(1);next->inheritedVisibility.store(false);panel.service(effect.get());check(panel.getWindowForAudit()!=nullptr,"explicit open after closed replacement");}
+                // Issue #9: a configuration save replaces the generation. The
+                // inherited intent belongs to the previous worker's retained
+                // window; a fresh worker must never open a panel on its own.
+                check(window==nullptr,"replacement generation never opens a panel without an explicit request");
+                next->command.store(1);next->desiredVisibility.store(1);next->inheritedVisibility.store(false);panel.service(effect.get());
+                check(panel.getWindowForAudit()!=nullptr,"explicit open after replacement");
+                check(IsWindowVisible(panel.getWindowForAudit())!=FALSE,"explicit open is visible");
                 next->desiredVisibility.store(0);next->command.store(3);panel.service(effect.get());
                 check(panel.getWindowForAudit()==nullptr,"close panel");
                 for(unsigned tick=0;tick<10;++tick)panel.service(effect.get());

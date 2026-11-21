@@ -39,6 +39,7 @@ public:
 	void storePreferences(QVariantMap& prefs) override;
 	void prepareDelete() override;
     bool flushPendingEdits() override {return child->flushPendingEdits();}
+    bool commitPendingState() override {return child->commitPendingState();}
 
 private slots:
 	void on_actionPowerOn_toggled(bool checked);

@@ -49,6 +49,7 @@
 #include <QTimer>
 #include <QScreen>
 #include <QGuiApplication>
+#include <QSessionManager>
 #include "ui_MainWindow.h"
 
 using namespace std;
@@ -165,6 +166,17 @@ MainWindow::MainWindow(QDir configDir, QWidget* parent)
 	analysisThread = new AnalysisThread;
 	analysisThread->start();
 	connect(analysisThread, SIGNAL(analysisFinished()), this, SLOT(updateAnalysisPanel()));
+	// Logoff/shutdown may end the session without closing the window. Save
+	// the newest checkpoint of every open or hidden VST panel first.
+	connect(qApp, &QGuiApplication::commitDataRequest, this, [this](QSessionManager&) {
+		for (int i = 0; i < ui->tabWidget->count(); i++)
+		{
+			auto* area = qobject_cast<QScrollArea*>(ui->tabWidget->widget(i));
+			auto* table = area ? qobject_cast<FilterTable*>(area->widget()) : nullptr;
+			if (table && table->commitPendingStates() && instantModeCheckBox->isChecked() && !table->getConfigPath().isEmpty())
+				save(table, table->getConfigPath());
+		}
+	});
 
 	QLocale autoLocale = QLocale::system();
 	if (autoLocale.language() != QLocale::German && autoLocale.language() != QLocale::Chinese && autoLocale.language() != QLocale::French)

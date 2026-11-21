@@ -237,3 +237,8 @@ foreach(property INCLUDE_DIRECTORIES COMPILE_DEFINITIONS LINK_DIRECTORIES LINK_L
     get_target_property(value EqApoFilterProbe ${property})
     set_target_properties(EqApoBrokerRetryPublicationProbe PROPERTIES ${property} "${value}")
 endforeach()
+add_executable(EqApoVst3GuiStateRoundTrip vst3_gui_state_roundtrip.cpp "${EQAPO_ROOT}/helpers/MemoryHelper.cpp")
+foreach(property INCLUDE_DIRECTORIES COMPILE_DEFINITIONS LINK_DIRECTORIES LINK_LIBRARIES)
+    get_target_property(value EqApoFilterProbe ${property})
+    set_target_properties(EqApoVst3GuiStateRoundTrip PROPERTIES ${property} "${value}")
+endforeach()

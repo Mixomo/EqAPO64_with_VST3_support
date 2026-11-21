@@ -105,7 +105,13 @@ public:
 	bool startEditing(HWND hWnd, short* width, short* height);
 	bool editorSupportsUserResize() const;
 	bool resizeEditorView(int width, int height);
-    bool hasActiveEditorGesture() const noexcept {return activeEditGestures.load(std::memory_order_acquire)>0;}
+    // A VST3 editor that opens a gesture without closing it (or nests more
+    // beginEdit than endEdit calls) must not block state checkpoints forever.
+    bool hasActiveEditorGesture() const noexcept {
+        return activeEditGestures.load(std::memory_order_acquire)>0
+            && GetTickCount64()-lastGestureActivity.load(std::memory_order_acquire)<gestureStaleMilliseconds;
+    }
+    void noteGestureActivity() noexcept {lastGestureActivity.store(GetTickCount64(),std::memory_order_release);}
 	void doIdle();
 	void stopEditing();
     void noteEditorInteraction() noexcept { editorInteraction.store(true,std::memory_order_release); }
@@ -173,6 +179,8 @@ private:
     std::atomic<std::uint32_t> restartFlags{0};
     std::atomic<std::uint64_t> stateGeneration{0}, parameterOverflows{0};
     std::atomic<unsigned> activeEditGestures{0};
+    std::atomic<std::uint64_t> lastGestureActivity{0};
+    static constexpr std::uint64_t gestureStaleMilliseconds=1500;
     vst_time_info vstTime{};
     int preparedBlockSize=0;
     bool controllerIsComponent=false;

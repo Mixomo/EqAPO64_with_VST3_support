@@ -483,7 +483,7 @@ public:
         return *obj ? kResultOk : kNoInterface;
     }
 
-	tresult PLUGIN_API beginEdit(ParamID) override {if(instance)instance->activeEditGestures.fetch_add(1,std::memory_order_release);return kResultOk;}
+	tresult PLUGIN_API beginEdit(ParamID) override {if(instance){instance->noteGestureActivity();instance->activeEditGestures.fetch_add(1,std::memory_order_release);}return kResultOk;}
     tresult PLUGIN_API isPlugInterfaceSupported(const TUID iid) override {
         return FUnknownPrivate::iidEqual(iid,IComponent::iid) ||
             FUnknownPrivate::iidEqual(iid,IAudioProcessor::iid) ||
@@ -495,6 +495,7 @@ public:
 	{
 		if (instance != NULL)
 		{
+            instance->noteGestureActivity();
 			if(!instance->routeEditsThroughSink)instance->queueVST3ParameterChange(id, value);
 			instance->notifyParameterEdit(id,value);
 			instance->onAutomate();
@@ -508,7 +509,7 @@ public:
         return kResultOk;
     }
     tresult PLUGIN_API requestOpenEditor(FIDString) override { return kNotImplemented; }
-    tresult PLUGIN_API startGroupEdit() override {if(instance)instance->activeEditGestures.fetch_add(1,std::memory_order_release);return kResultOk;}
+    tresult PLUGIN_API startGroupEdit() override {if(instance){instance->noteGestureActivity();instance->activeEditGestures.fetch_add(1,std::memory_order_release);}return kResultOk;}
     tresult PLUGIN_API finishGroupEdit() override {finishGesture();return kResultOk;}
 	tresult PLUGIN_API restartComponent(int32 flags) override {
         if(instance) instance->restartFlags.fetch_or(static_cast<uint32>(flags),std::memory_order_release);

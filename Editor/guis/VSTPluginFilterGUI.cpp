@@ -56,6 +56,7 @@
 using namespace std;
 
 static QString makeOutProcPidPath(const QString& hostId);
+static constexpr int scanTimeoutMs = 20000;
 
 static QString makeOutProcObjectName(const QString& hostId, const wchar_t* suffix)
 {
@@ -103,6 +104,8 @@ VSTPluginFilterGUI::VSTPluginFilterGUI(std::shared_ptr<VSTPluginLibrary> library
         grid->addWidget(diagnostics,4,0,1,5);
 	}
 	ui->warningTextEdit->hide();
+	GUIHelper::applyWarningBoxPalette(ui->warningTextEdit);
+	GUIHelper::applyStatusTextPalette(ui->statusLabel);
 
 	QString absolutePath = QString::fromStdWString(library->getLibPath());
 	QDir pluginsDir(QString::fromStdWString(VSTPluginLibrary::getDefaultPluginPath()));
@@ -168,10 +171,7 @@ void VSTPluginFilterGUI::store(QString& command, QString& parameters)
 void VSTPluginFilterGUI::loadPreferences(const QVariantMap& prefs)
 {
     Q_UNUSED(prefs);
-    QPalette palette = ui->statusLabel->palette();
-    palette.setColor(QPalette::Active, QPalette::WindowText, Qt::black);
-    palette.setColor(QPalette::Inactive, QPalette::WindowText, Qt::black);
-    ui->statusLabel->setPalette(palette);
+    GUIHelper::applyStatusTextPalette(ui->statusLabel);
 }
 
 void VSTPluginFilterGUI::storePreferences(QVariantMap& prefs)
@@ -194,6 +194,16 @@ bool VSTPluginFilterGUI::checkpointPendingEdits()
     // state flush, and the editor continues collecting its snapshot afterward.
     if (nativeDspPanel)
         nativePanelControl(4);
+    return true;
+}
+
+bool VSTPluginFilterGUI::commitPendingState()
+{
+    // Take the newest checkpoint the worker already published. The panel
+    // stays open; the worker treats this preset as an echo of live state.
+    if(nativeDspPanel)on_idle();
+    if(!nativeStatePending || nativeStateSaveFailed)return false;
+    nativeStatePending=false;
     return true;
 }
 
@@ -263,6 +273,7 @@ void VSTPluginFilterGUI::openOutProcPanel()
         if(view.available) {
             const bool hide=nativeDspPanel && view.status==2;
             if(nativePanelControl(hide?2:1).available) {
+                hideCommitPending=hide;if(hide)hideCommitTimer.start();
                 nativeEndpointRetries=0;pendingPanelOpen=false;nativeDspPanel=true;nativeViewOpening=!hide;nativeClosePending=false;nativePanelGeneration=view.generation;outProcGuiRunning=true;outProcGuiHidden=hide;
                 ui->openPanelButton->setText(hide?tr("Show panel"):tr("Hide panel"));
                 ui->statusLabel->setText(tr("Native panel connected to the audio processor"));
@@ -349,6 +360,7 @@ void VSTPluginFilterGUI::openOutProcPanel()
 
 	outProcGuiRunning = true;
 	outProcGuiPid = guiProcess->processId();
+	pluginEditorOpened();
 	outProcGuiHidden = false;
 	ui->openPanelButton->setText(tr("Hide panel"));
 	ui->statusLabel->setText(tr("VST panel"));
@@ -529,17 +541,30 @@ void VSTPluginFilterGUI::on_idle()
                 // config.txt here would replace that component for every edit.
                 // Keep its complete checkpoint and commit when the view closes.
                 nativeStatePending |= changed;
+                if(hideCommitPending && outProcGuiHidden) {
+                    hideCommitPending=false;
+                    if(nativeStatePending && !nativeStateSaveFailed){nativeStatePending=false;updateModel();}
+                }
             }
         }
         if(view.snapshotError){nativeStateSaveFailed=true;ui->statusLabel->setText(tr("Could not save the VST state"));}
         else if(view.snapshotSequence)nativeStateSaveFailed=false;
-        if(view.status==2 || view.status==3)nativeViewOpening=false;
+        if(view.status==2 || view.status==3){nativeViewOpening=false;pluginEditorOpened();}
         if((!view.available && !nativeViewOpening) || (view.status==1 && (!nativeViewOpening || view.visibility==0)) || view.status==6){
             nativePanelControl(3);
             nativeDspPanel=false;outProcGuiRunning=false;outProcGuiHidden=false;nativeClosePending=false;
             ui->openPanelButton->setText(tr("Open panel"));
             if(nativeStatePending && !nativeStateSaveFailed){nativeStatePending=false;updateModel();}
-        } else {outProcGuiHidden=view.visibility==2 || view.status==3;ui->openPanelButton->setText(outProcGuiHidden?tr("Show panel"):tr("Hide panel"));}
+        } else {
+            outProcGuiHidden=view.visibility==2 || view.status==3;ui->openPanelButton->setText(outProcGuiHidden?tr("Show panel"):tr("Hide panel"));
+            // A hidden panel can stay hidden until logoff or shutdown. Save the
+            // checkpoint taken for Hide instead of waiting for the final close.
+            if(!outProcGuiHidden)hideCommitPending=false;
+            else if(hideCommitPending && hideCommitTimer.elapsed()>2000) {
+                hideCommitPending=false;
+                if(nativeStatePending && !nativeStateSaveFailed){nativeStatePending=false;updateModel();}
+            }
+        }
         return;
     }
     if(guiProcess && !guiProcess->alive()) {
@@ -581,6 +606,14 @@ void VSTPluginFilterGUI::on_idle()
 		}
 	}
 
+}
+
+void VSTPluginFilterGUI::pluginEditorOpened()
+{
+    if(!scanWarningVisible)return;
+    scanWarningVisible=false;
+    ui->warningTextEdit->hide();
+    ui->warningTextEdit->clear();
 }
 
 void VSTPluginFilterGUI::scanProtectedPlugin() {
@@ -633,12 +666,15 @@ void VSTPluginFilterGUI::scanProtectedPlugin() {
                     }
                     const int error=object["win32_error"].toInt();
                     if(error)reason+=tr(" (Windows error %1: %2)").arg(error).arg(object["message"].toString().trimmed());
-                } else if(status==QProcess::CrashExit)reason=tr("Plugin checker crashed or timed out");
+                } else if(process->property("eqapoScanTimedOut").toBool())
+                    reason=tr("The plugin took longer than %1 s to load during the check. It may still work: open its panel to confirm.").arg(scanTimeoutMs/1000);
+                else if(status==QProcess::CrashExit)reason=tr("Plugin checker crashed");
                 else reason=tr("Plugin checker failed (exit code %1)").arg(code);
                 const QString path=QString::fromStdWString(scanLibrary->getLoadPath());
                 ui->statusLabel->setText(reason);
                 ui->warningTextEdit->setPlainText(reason+"\n"+QDir::toNativeSeparators(path));
                 ui->warningTextEdit->show();
+                scanWarningVisible=true;
             }
         }
         QFile::remove(report);scanner=nullptr;process->deleteLater();
@@ -651,5 +687,9 @@ void VSTPluginFilterGUI::scanProtectedPlugin() {
     });
     process->start(QDir(QCoreApplication::applicationDirPath()).filePath("EqApoOutProcHost.exe"),
         {"--parent-pid",QString::number(GetCurrentProcessId()),"--scan","--plugin",QString::fromStdWString(library->getLibPath()),"--result",report});
-    QTimer::singleShot(5000,process,[process]() {if(process->state()!=QProcess::NotRunning)process->kill();});
+    // Licensed/heavy plug-ins (e.g. Realphones) can take many seconds on a
+    // cold start. Give the isolated checker a generous budget.
+    QTimer::singleShot(scanTimeoutMs,process,[process]() {
+        if(process->state()!=QProcess::NotRunning){process->setProperty("eqapoScanTimedOut",true);process->kill();}
+    });
 }

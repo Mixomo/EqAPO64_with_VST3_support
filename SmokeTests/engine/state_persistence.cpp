@@ -35,6 +35,10 @@ int wmain(int argc,wchar_t** argv){
             channel->command.store(3);panel.service(effect.get());check(!panel.getWindowForAudit(),"GUI closes");expect(*effect,id,edited,"closing GUI preserves parameter");
             OutProcVSTConfig saved;check(channel->snapshotSequence.load() && OutProcReadVSTConfig(channel->snapshotPath,saved),"complete checkpoint on GUI close");
             check(!saved.chunkData.empty(),"full preset checkpoint contains opaque state");
+            // The Editor stores ChunkData only. Committing that checkpoint must
+            // be recognised as live state, not as a preset to re-apply.
+            {OutProcVSTConfig echo=saved;echo.paramMap.clear();check(panel.isPublishedPreset(echo),"committed checkpoint recognised as live-state echo");
+             OutProcVSTConfig foreign=saved;foreign.paramMap.clear();foreign.chunkData=L"QUJDRA==";check(!panel.isPublishedPreset(foreign),"foreign preset is not an echo");}
             auto restored=std::make_unique<VSTPluginInstance>(library,2);check(restored->initialize(),"fresh component");restored->setUsedChannelCount(6);
             restored->writeToEffect(saved.chunkData,saved.paramMap);restored->prepareForProcessing(48000,480,false);expect(*restored,id,edited,"fresh instance restores saved parameter");restored.reset();
             channel->desiredVisibility.store(1);channel->command.store(1);panel.service(effect.get());expect(*effect,id,edited,"reopening GUI preserves parameter");

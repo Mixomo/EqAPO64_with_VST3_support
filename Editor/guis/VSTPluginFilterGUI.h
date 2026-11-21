@@ -49,6 +49,7 @@ public:
 	void prepareDelete() override;
 	bool checkpointPendingEdits() override;
     bool flushPendingEdits() override;
+    bool commitPendingState() override;
     ManagedGuiProcess::Shutdown getGuiShutdownDiagnostics() const noexcept {return lastGuiProcess?lastGuiProcess->shutdown():ManagedGuiProcess::Shutdown{};}
     DWORD getOwnedGuiProcessId() const noexcept {return guiProcess?guiProcess->processId():0;}
     struct PersistenceAudit {bool panel,pending,failed;std::uint64_t generation,sequence;};
@@ -83,6 +84,10 @@ private:
     bool nativeClosePending=false;
     bool nativeStatePending=false;
     bool nativeStateSaveFailed=false;
+    // Set by an explicit Hide; the worker publishes a forced checkpoint
+    // for it, which is saved once (never continuously while hidden).
+    bool hideCommitPending=false;
+    QElapsedTimer hideCommitTimer;
     std::uint64_t nativePanelGeneration=0;
 	qint64 outProcGuiPid = 0;
 	QString outProcGuiConfigPath;
@@ -94,6 +99,10 @@ private:
 	QProcess* scanner=nullptr;
     std::shared_ptr<ManagedGuiProcess> guiProcess,lastGuiProcess;
     bool pendingPanelOpen=false;
+    // The checker result is advisory: a slow or failed check must not keep
+    // warning once the real plug-in has opened its editor.
+    bool scanWarningVisible=false;
+    void pluginEditorOpened();
     unsigned nativeEndpointRetries=0;
     std::uint64_t lastStateGeneration=~std::uint64_t(0);
     std::uint64_t nativeSnapshotGeneration=0,nativeSnapshotSequence=0;

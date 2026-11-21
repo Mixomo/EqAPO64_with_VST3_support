@@ -73,6 +73,8 @@ void ResizingLineEdit::setPathMode()
 {
     pathMode=true;forceWidth=false;
     setMinimumWidth(QLineEdit::minimumSizeHint().width());
-    setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Preferred);
+    // Width follows the row; height stays a normal single line even when a
+    // taller neighbour (e.g. the convolution "File information" box) shares the row.
+    setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Fixed);
     readjustSize();
 }

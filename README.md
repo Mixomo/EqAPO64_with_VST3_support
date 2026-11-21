@@ -41,6 +41,20 @@ This branch is a rewrite of the VST engine from the **2.0.4 experimental branch*
 - Reproducible installer build using local dependencies under `third_party/`.
 - NSIS-based safe installer packaging with multiple optional components for saving disk space and customize the installation.
 
+## Changelog | 3.0.4 (21/11/2026)
+
+- Fixed VST3 (and VST2) settings reverting to an older state after reopening Configuration Editor or restarting Windows. The newest panel state is now saved before modules are rebuilt (moving, adding, cloning or editing other rows, changing device), after hiding a panel, and when Windows logs off or shuts down.
+- Saving the configuration while a VST panel is open no longer re-applies an older copy of the plug-in state over newer edits.
+- VST3 plug-ins that start a parameter edit without finishing it no longer block state saving until the panel is closed.
+- The state checkpoint taken before bypassing a VST module now actually reaches the plug-in.
+- Fixed crackling, pops and high CPU usage while a VST panel is open with plug-ins that update meters or other output values continuously (for example Realphones). Forwarding those values to the panel no longer locks the plug-in, so audio blocks are no longer skipped while its GUI repaints. This applies to every output device; it was most noticeable with Voicemeeter (#1) because of its small buffers and because a stereo plug-in on an 8-channel bus runs as four instances. No changes to the Voicemeeter client were needed. To reduce CPU further on an 8-channel Voicemeeter bus, add `Channel: L R` before the plug-in so that a single instance is used.
+- Hidden VST panels are no longer shown again by a configuration change unless Show panel is clicked (#9).
+- Cloned VST modules get their own identity, and duplicate VST identities in a file are renamed, so two modules no longer control the same panel.
+- The plug-in checker waits up to 20 s for slow-loading plug-ins, distinguishes a slow load from a crash, and removes its warning once the plug-in panel opens.
+- VST module warnings, status text and convolution/include error labels are now readable in dark mode.
+- Fixed the convolution module's path box stretching to the height of the File information box.
+- [for developers - compilation] Adds a VST3 GUI-edit state round-trip probe and updates the panel visibility test to the 3.0.3 behavior.
+
 ## Changelog | 3.0.3 (16/10/2026)
 
 - Normalizes the maximum response of bundled Voxengo IMreverbs to 0 dB when loaded, including existing configurations, while keeping the bundled source WAVs unchanged.
@@ -255,7 +269,7 @@ The script performs the complete packaging flow:
 - Builds Qt-based applications such as Configuration Editor and Device Selector.
 - Deploys the required Qt runtime files with `windeployqt`.
 - Stages runtime files under `Setup/lib64`.
-- Creates `EqualizerAPO-x64-1.4.2-with-VST3-support-V3.0.0.exe` under `output/installer/`.
+- Creates `EqualizerAPO-x64-1.4.2-with-VST3-support-V3.0.4.exe` under `output/installer/`.
 
 Build logs are saved under `output/build/`.
 

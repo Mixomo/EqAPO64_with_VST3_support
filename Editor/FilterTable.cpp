@@ -39,6 +39,7 @@
 #include <QSettings>
 #include <QSpinBox>
 #include <QUuid>
+#include <QSet>
 
 #include "MainWindow.h"
 #include "FilterTableRow.h"
@@ -135,6 +136,12 @@ void FilterTable::updateGuis()
 {
 	QElapsedTimer timer;
 	timer.start();
+
+	// Rows are rebuilt below. A VST row keeps the newest panel checkpoint only
+	// in its widget until the panel closes; serialize it first, otherwise the
+	// rebuilt row (and the next save) falls back to the previously saved state.
+	const bool committedLiveState = commitPendingStates();
+	const bool renamedDuplicateHosts = ensureUniqueHostIds();
 
 	for (Item* item : items)
 	{
@@ -263,6 +270,8 @@ void FilterTable::updateGuis()
 
 	qDebug("Create took %d ms", timer.elapsed());
 	update();
+	if (committedLiveState || renamedDuplicateHosts)
+		emit linesChanged();
 }
 
 void FilterTable::propagateChannels()
@@ -375,6 +384,59 @@ FilterTable::Item* FilterTable::addLine(const QString& line, FilterTable::Item* 
 	return newItem;
 }
 
+static const QRegularExpression& vstRowPattern()
+{
+	static const QRegularExpression pattern("^\\s*(?:#\\s*)?(?:OutProc)?VSTPlugin\\s*:");
+	return pattern;
+}
+
+static const QRegularExpression& hostIdPattern()
+{
+	static const QRegularExpression pattern("\\s+HostId\\s+(\"[^\"]*\"|\\S+)");
+	return pattern;
+}
+
+static bool isVSTRowText(const QString& text)
+{
+	return vstRowPattern().match(text).hasMatch();
+}
+
+static QString withFreshHostId(QString text)
+{
+	const QString replacement = " HostId " + QUuid::createUuid().toString(QUuid::WithoutBraces);
+	if (hostIdPattern().match(text).hasMatch())
+		text.replace(hostIdPattern(), replacement);
+	else
+		text += replacement;
+	return text;
+}
+
+bool FilterTable::ensureUniqueHostIds()
+{
+	// Pasted or duplicated VST lines keep their HostId. Two rows with one
+	// HostId share a control session: edits, snapshots and Show/Hide of one
+	// panel then act on the other row's worker.
+	QSet<QString> seen;
+	bool changed = false;
+	for (Item* item : items)
+	{
+		if (!isVSTRowText(item->text))
+			continue;
+		const auto match = hostIdPattern().match(item->text);
+		if (!match.hasMatch())
+			continue;
+		const QString id = match.captured(1).toLower();
+		if (seen.contains(id))
+		{
+			item->text = withFreshHostId(item->text);
+			changed = true;
+		}
+		else
+			seen.insert(id);
+	}
+	return changed;
+}
+
 FilterTable::Item* FilterTable::cloneItem(FilterTable::Item* item, bool insertBelow)
 {
 	const int sourceIndex = items.indexOf(item);
@@ -388,16 +450,10 @@ FilterTable::Item* FilterTable::cloneItem(FilterTable::Item* item, bool insertBe
 	}
 
 	QString clonedText = item->text;
-	const QRegularExpression outProcCommand("^\\s*(?:#\\s*)?OutProcVSTPlugin\\s*:");
-	if (outProcCommand.match(clonedText).hasMatch())
-	{
-		const QString replacement = " HostId " + QUuid::createUuid().toString(QUuid::WithoutBraces);
-		const QRegularExpression hostId("\\s+HostId\\s+(?:\"[^\"]*\"|\\S+)");
-		if (hostId.match(clonedText).hasMatch())
-			clonedText.replace(hostId, replacement);
-		else
-			clonedText += replacement;
-	}
+	// A clone is a separate plugin instance. Sharing the HostId would bind
+	// both rows (and both APO filters) to one control session and panel.
+	if (isVSTRowText(clonedText))
+		clonedText = withFreshHostId(clonedText);
 
 	Item* clone = new Item(clonedText);
 	clone->prefs = item->prefs;
@@ -580,6 +636,19 @@ void FilterTable::selectAll()
 void FilterTable::updateModel()
 {
 	emit linesChanged();
+}
+
+bool FilterTable::commitPendingStates()
+{
+    bool committed=false;
+    for(Item* item:items) {
+        if(!item->gui || !item->gui->commitPendingState())continue;
+        QString command,parameters;
+        item->gui->store(command,parameters);
+        item->text=command+": "+parameters;
+        committed=true;
+    }
+    return committed;
 }
 
 bool FilterTable::flushPendingEdits()

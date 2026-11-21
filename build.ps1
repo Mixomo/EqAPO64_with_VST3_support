@@ -32,11 +32,12 @@ try {
     if (!(Test-Path -LiteralPath $Makensis)) { throw "NSIS not found: $Makensis" }
     $temporary = Join-Path $root "_build\installer\$stamp"
     New-Item -ItemType Directory -Force -Path $temporary | Out-Null
-    $name = 'EqualizerAPO-x64-1.4.2-with-VST3-support-V3.0.0.exe'
+    $forkVersion = '3.0.4'
+    $name = "EqualizerAPO-x64-1.4.2-with-VST3-support-V$forkVersion.exe"
     $candidate = Join-Path $temporary $name
     Push-Location (Join-Path $root 'Setup')
     try {
-        & $Makensis "/DOUTPUT_FILE=$candidate" 'Setup64.nsi' 2>&1 |
+        & $Makensis "/DOUTPUT_FILE=$candidate" "/DFORK_VERSION=$forkVersion" 'Setup64.nsi' 2>&1 |
             Tee-Object -FilePath (Join-Path $logs '06-nsis.log')
         if ($LASTEXITCODE -ne 0) { throw "NSIS failed: $LASTEXITCODE" }
     } finally { Pop-Location }

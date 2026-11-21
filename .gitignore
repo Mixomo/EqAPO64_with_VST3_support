@@ -36,6 +36,7 @@
 /Setup/lib64/
 /Setup/WideModern.exe
 /third_party/build/
+/Release checklist.txt
 
 # Compiler and Python caches
 *.obj

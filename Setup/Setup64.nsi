@@ -7,8 +7,13 @@
 
 !include "Setup.nsi"
 
+; Release number of this VST3 fork (shown in the installer file name).
+!ifndef FORK_VERSION
+!define FORK_VERSION "3.0.4"
+!endif
+
 !ifdef OUTPUT_FILE
 OutFile "${OUTPUT_FILE}"
 !else
-OutFile "EqualizerAPO-x64-1.4.2-with-VST3-support-V3.0.0.exe"
+OutFile "EqualizerAPO-x64-1.4.2-with-VST3-support-V${FORK_VERSION}.exe"
 !endif

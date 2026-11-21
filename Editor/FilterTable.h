@@ -97,6 +97,9 @@ public:
 
 	void updateAnalysis();
     bool flushPendingEdits();
+    // Serializes live external state (open VST panels) into the row text.
+    bool commitPendingStates();
+    bool ensureUniqueHostIds();
 
 signals:
 	void linesChanged();

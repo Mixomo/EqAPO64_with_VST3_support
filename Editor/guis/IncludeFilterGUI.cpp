@@ -21,12 +21,14 @@
 
 #include "helpers/RegistryHelper.h"
 #include "IncludeFilterGUI.h"
+#include "Editor/helpers/GUIHelper.h"
 #include "ui_IncludeFilterGUI.h"
 
 IncludeFilterGUI::IncludeFilterGUI(FilterTable* filterTable, const QString& path)
 	: ui(new Ui::IncludeFilterGUI), filterTable(filterTable)
 {
 	ui->setupUi(this);
+	GUIHelper::applyErrorTextPalette(ui->errorLabel);
 
 	ui->pathLineEdit->setText(path);
 

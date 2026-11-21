@@ -44,6 +44,10 @@ public:
 	// bypass. Stateful children can commit their live state without closing.
 	virtual bool checkpointPendingEdits() { return true; }
     virtual bool flushPendingEdits() { return true; }
+    // Collects state that is live in an external process but not yet in the
+    // row text (for example an open VST panel). Returns true when store()
+    // must be called again before the row widget is destroyed or saved.
+    virtual bool commitPendingState() { return false; }
 
 signals:
 	void updateModel();
