@@ -52,6 +52,9 @@ public:
 	void write(double** output, unsigned frameCount);
 	double** getOutputSamples() {return allSamples;}
 	bool isEmpty();
+    // Called once this graph has replaced the previous one. The transition
+    // aligned it to the larger of both latencies; release that extra delay.
+    void releaseTransitionLatency() noexcept;
     unsigned getAnalysisStatus() const noexcept;
     double getAnalysisCpuMilliseconds() const noexcept;
 
@@ -68,6 +71,7 @@ private:
     GraphAlignment alignment;
     std::vector<unsigned> channelLatencies;
     unsigned targetLatency=0,nativeLatency=0,warmupMargin=0;
+    bool releasePending=false;
     void alignOutput(unsigned target,unsigned frames);
 };
 #pragma AVRT_VTABLES_END

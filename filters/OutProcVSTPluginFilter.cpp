@@ -95,11 +95,14 @@ vector<wstring> OutProcVSTPluginFilter::initialize(float sampleRate, unsigned ma
 	}
 
     if(!analysisMode) {
-        // The existing client accumulates callback fragments without waiting.
-        // Keep IPC cadence independent of tiny APO callbacks; a 10 ms quantum
-        // avoids thousands of kernel wakeups and sub-millisecond round trips.
-        // This is explicit buffered transport latency, not a longer timeout.
-        maxFrameCount=(std::max)(maxFrameCount,static_cast<unsigned>(std::ceil(double(sampleRate)/100.0)));
+        // Buffered: keep IPC cadence independent of tiny callbacks (for
+        // example Voicemeeter over ASIO at 128 samples). The quantum is the
+        // smallest multiple of the callback size of at least 10 ms, so blocks
+        // complete on callback boundaries and one quantum of buffering is enough.
+        // Hybrid: one quantum per callback, whatever its size, so the answer
+        // can be awaited inside the same callback.
+        const unsigned tenMs=static_cast<unsigned>(std::ceil(double(sampleRate)/100.0));
+        if(!hybridLatency && maxFrameCount<tenMs)maxFrameCount*=(tenMs+maxFrameCount-1)/maxFrameCount;
         this->maxFrameCount=maxFrameCount;
     }
 

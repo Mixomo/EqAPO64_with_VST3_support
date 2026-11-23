@@ -593,6 +593,10 @@ Section "-Install"
   FindWindow $1 "Shell_TrayWnd"
   StrCmp $1 0 brokerStarted
   Exec '"$WINDIR\explorer.exe" "$INSTDIR\EqApoOutProcHost.exe"'
+  ; The update closed the Voicemeeter client. Start it again the same way;
+  ; opened without arguments it takes its outputs from the user's startup
+  ; shortcut and exits at once if Voicemeeter is not configured.
+  Exec '"$WINDIR\explorer.exe" "$INSTDIR\VoicemeeterClient.exe"'
   brokerStarted:
 
 

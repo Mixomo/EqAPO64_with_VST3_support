@@ -53,6 +53,13 @@ public:
         }
         ramp=(std::min)(fadeFrames,ramp+blockFrames);
     }
+    // Jump straight to a target without a crossfade: only for a graph whose
+    // output is not heard (an empty graph, which the engine bypasses).
+    void snap(unsigned target,const unsigned* nativeLatencies) noexcept {
+        for(unsigned c=0;c<channels;++c)
+            oldDelay[c]=newDelay[c]=target>=nativeLatencies[c] ? target-nativeLatencies[c] : 0;
+        ramp=fadeFrames;
+    }
     bool settled() const noexcept {return ramp>=fadeFrames;}
     std::uint64_t processedFrames() const noexcept {return position;}
 };

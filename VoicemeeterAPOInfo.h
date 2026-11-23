@@ -53,6 +53,9 @@ public:
 	void reinstall() override;
 	static void ensureVoicemeeterClientRunning();
 	static void saveVoicemeeterSampleRate(unsigned sampleRate);
+	// Outputs listed in the signed-in user's startup shortcut (empty if none).
+	// The caller must have initialized COM.
+	static std::vector<std::wstring> getStartupOutputs();
 
 private:
 	static std::wstring getStartupPath();

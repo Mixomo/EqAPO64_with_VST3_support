@@ -617,6 +617,7 @@ void FilterEngine::process(float* output, float* input, unsigned frameCount)
 	if (next != nullptr && transitionCounter >= transitionLength)
 	{
 		previousConfig.store(current,std::memory_order_release);
+		next->releaseTransitionLatency();
 		currentConfig.store(next,std::memory_order_release);
 		nextConfig = NULL;
 		transitionCounter = 0;
@@ -668,6 +669,7 @@ void FilterEngine::process(float** output, float** input, unsigned frameCount)
 	if (next != nullptr && transitionCounter >= transitionLength)
 	{
 		previousConfig.store(current,std::memory_order_release);
+		next->releaseTransitionLatency();
 		currentConfig.store(next,std::memory_order_release);
 		nextConfig = NULL;
 		transitionCounter = 0;
@@ -708,6 +710,7 @@ void FilterEngine::process(double* output, double* input, unsigned frameCount)
 	if (next != nullptr && transitionCounter >= transitionLength)
 	{
 		previousConfig.store(current,std::memory_order_release);
+		next->releaseTransitionLatency();
 		currentConfig.store(next,std::memory_order_release);
 		nextConfig = NULL;
 		transitionCounter = 0;
@@ -748,6 +751,7 @@ void FilterEngine::process(double** output, double** input, unsigned frameCount)
 	if (next != nullptr && transitionCounter >= transitionLength)
 	{
 		previousConfig.store(current,std::memory_order_release);
+		next->releaseTransitionLatency();
 		currentConfig.store(next,std::memory_order_release);
 		nextConfig = NULL;
 		transitionCounter = 0;

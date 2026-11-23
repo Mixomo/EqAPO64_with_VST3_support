@@ -284,6 +284,11 @@ void VoicemeeterAPOInfo::reinstall()
 	install();
 }
 
+vector<wstring> VoicemeeterAPOInfo::getStartupOutputs()
+{
+	return splitArgs(getLinkArgs(getStartupPath()));
+}
+
 wstring VoicemeeterAPOInfo::getStartupPath()
 {
 	PWSTR startupPath;

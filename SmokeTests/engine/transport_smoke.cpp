@@ -20,12 +20,13 @@ int wmain(int argc,wchar_t** argv) {
     const std::wstring path=argv[1], report=argv[2];
     const unsigned duration=std::stoul(argv[3]);
     if(duration<1 || duration>60) {std::cerr<<"Smoke duration must be 1..60 seconds\n";return 2;}
-    bool analyzer=false,oracle=false,faults=false,hybrid=false;std::wstring gainId;double oracleGain=1;
+    bool analyzer=false,oracle=false,faults=false,hybrid=false;std::wstring gainId;double oracleGain=1;unsigned block=480;
     for(int i=4;i<argc;++i) {
         const std::wstring option=argv[i];
         if(option==L"--analysis")analyzer=true;
         else if(option==L"--faults")faults=true;
         else if(option==L"--zero-latency")hybrid=true;
+        else if(option==L"--block" && i+1<argc) {block=std::stoul(argv[++i]);if(block<16 || block>4096){std::cerr<<"Block must be 16..4096 frames\n";return 2;}}
         else if(option==L"--oracle" && i+2<argc) {oracle=true;gainId=argv[++i];oracleGain=std::stod(argv[++i]);}
     }
     timeBeginPeriod(1);
@@ -44,8 +45,13 @@ int wmain(int argc,wchar_t** argv) {
         probe.readFromEffect(state,parameters);
         if(oracle)parameters[gainId]=float(oracleGain);
         const unsigned pluginLatency=(std::max)(0,probe.getInitialDelay());
-        const unsigned rate=48000,quantum=480;
-        const unsigned expectedLatency=pluginLatency+(analyzer?0:2*quantum);
+        // The callback size; 128 frames matches Voicemeeter over ASIO.
+        const unsigned rate=48000,quantum=block;
+        const unsigned tenMs=rate/100;
+        // Buffered transport groups callbacks into a quantum of >= 10 ms.
+        const unsigned bufferedQuantum=quantum>=tenMs ? quantum : (tenMs+quantum-1)/quantum*quantum;
+        const unsigned hybridCeiling=(std::max)(2*quantum,quantum+(tenMs+quantum-1)/quantum*quantum);
+        const unsigned expectedLatency=pluginLatency+(analyzer?0:(std::max)(2*bufferedQuantum,hybridCeiling));
         OutProcVSTPluginFilter filter(path,state,parameters,L"",analyzer,0,
             library->isVST3()?library->getVST3ClassUID(0):L"");
         filter.setHybridLatency(hybrid);
@@ -54,7 +60,7 @@ int wmain(int argc,wchar_t** argv) {
         Sleep(1000);
         std::vector<double> input0(quantum),input1(quantum),output0(quantum),output1(quantum);
         double* input[]={input0.data(),input1.data()};double* output[]={output0.data(),output1.data()};
-        std::vector<double> durations;durations.reserve(size_t(duration)*100+100);
+        std::vector<double> durations;durations.reserve(size_t(duration)*(rate/quantum+1)+100);
         unsigned long long position=0,nonzero=0,oracleChecks=0,oracleFailures=0;unsigned kills=0;
         double lastFault=-100;
         double maxDiscontinuity=0,last=0;
@@ -95,7 +101,7 @@ int wmain(int argc,wchar_t** argv) {
             }
             position+=quantum;
             if(!analyzer) {
-                deadline+=std::chrono::milliseconds(10);
+                deadline+=std::chrono::nanoseconds(1000000000ULL*quantum/rate);
                 const auto remaining=std::chrono::duration_cast<std::chrono::nanoseconds>(deadline-std::chrono::steady_clock::now()).count();
                 if(remaining>0) {
                     if(!pacingTimer)throw std::runtime_error("PACING_TIMER_CREATE");
@@ -131,7 +137,7 @@ int wmain(int argc,wchar_t** argv) {
             // Older broker: its worker never signals slots, so hybrid must
             // fall back to the one-quantum buffer (oracle above: no errors).
             if(filter.isHybridActive() || !filter.hasHybridFallenBack())throw std::runtime_error("HYBRID_OLD_WORKER_NOT_BUFFERED");
-            if(filter.getLatencySamples()!=pluginLatency+quantum)throw std::runtime_error("HYBRID_OLD_WORKER_LATENCY");
+            if(filter.getLatencySamples()!=pluginLatency+(quantum>=tenMs ? quantum : hybridCeiling))throw std::runtime_error("HYBRID_OLD_WORKER_LATENCY");
             std::wcerr<<L"NOTE zero-latency run served by an older worker ("<<workerImage<<L"); verified buffered fallback only\n";
         }
         const double p99=durations[size_t((durations.size()-1)*0.99)],max=durations.back();
@@ -140,7 +146,7 @@ int wmain(int argc,wchar_t** argv) {
             <<",\"callbacks\":"<<durations.size()<<",\"frames\":"<<position<<",\"declared_latency_samples\":"<<(analyzer ? pluginLatency : filter.getLatencySamples())
             <<",\"callback_p99_us\":"<<p99<<",\"callback_max_us\":"<<max
             <<",\"max_adjacent_sample_delta\":"<<maxDiscontinuity<<",\"oracle_samples\":"<<oracleChecks<<",\"oracle_failures\":"<<oracleFailures<<",\"forced_host_crashes\":"<<kills
-            <<",\"zero_latency_requested\":"<<(hybrid?"true":"false")<<",\"zero_latency_active\":"<<(filter.isHybridActive()?"true":"false")
+            <<",\"block_frames\":"<<quantum<<",\"zero_latency_requested\":"<<(hybrid?"true":"false")<<",\"zero_latency_active\":"<<(filter.isHybridActive()?"true":"false")
             <<",\"zero_latency_fell_back\":"<<(filter.hasHybridFallenBack()?"true":"false")
             <<",\"worker_supports_zero_latency\":"<<(builtWorker?"true":"false")
             <<",\"limits\":[\"The optional oracle covers the declared linear gain fixture only; does not certify audiodg, arbitrary-plugin wet/dry identity, graph transitions or deadline compliance under system load\"]}\n";

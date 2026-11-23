@@ -44,10 +44,15 @@ This branch is a rewrite of the VST engine from the **2.0.4 experimental branch*
 ## Changelog | 3.0.5 (22/11/2026)
 
 - Lower VST latency (#1): each VST now adds one 10 ms audio block instead of two (about 10 ms less at 48 kHz). If the plug-in process falls behind, or Windows delivers audio in irregular block sizes, that VST switches back to two blocks automatically.
-- New optional **Zero latency (hybrid)** mode per VST module. The Windows audio callback waits for the plug-in (up to 5 ms per block), so no transport latency is added, for real-time monitoring and headphone or room correction. After 3 missed deadlines within 10 s the module switches to buffered mode until the configuration is reloaded. If an older plug-in broker is still running, the module uses buffered mode instead. It is saved as `ZeroLatency 1` on the `VSTPlugin:` line; older versions ignore it. See the pros and cons in [Zero Latency (Hybrid) Mode](#zero-latency-hybrid-mode).
-- The installer now starts the updated plug-in broker in your normal (non-administrator) Windows account right after installation, so new engine features work without signing out or restarting.
+- New optional **Zero latency (hybrid)** mode per VST module, for real-time monitoring and headphone or room correction. The audio callback waits for the plug-in (up to 5 ms per block, or half a block if that is shorter), so no transport latency is added; only the plug-in's own latency remains. It also works with small buffers, such as Voicemeeter with an ASIO output at 128 samples. After 3 missed deadlines within 10 s the module switches to buffered mode until the configuration is reloaded. If an older plug-in broker is still running, the module uses buffered mode instead. It is saved as `ZeroLatency 1` on the `VSTPlugin:` line; older versions ignore it. Pros and cons are in [Zero Latency (Hybrid) Mode](#zero-latency-hybrid-mode) and in the VST compatibility notes of the Configuration Editor.
+- Small audio buffers (for example Voicemeeter over ASIO at 128 samples): buffered VSTs now group the small blocks into one block of at least 10 ms that is a multiple of the buffer size (512 samples at 128), so blocks always end on a buffer boundary. Buffered latency stays about 20 ms there (18.7 ms at 48 kHz, 20.3 ms at 44.1 kHz); use Zero latency mode to remove it.
+- Fixed latency that never went down after a configuration change. Changing the configuration crossfades the old and new filter chains at their common latency, but the new chain then kept that latency until the audio engine restarted. So after a buffered VST had been used once, every later configuration (even a simple Preamp, or a VST in Zero latency mode) kept its extra delay. The new chain now returns to its own latency with a 10 ms crossfade right after the change. This affected every output device, not only Voicemeeter.
+- Measured on Voicemeeter Banana with an ASIO output at 128 samples (44.1 kHz), with a test plug-in that has 5.8 ms of its own latency: buffered mode adds 26.0 ms, Zero latency mode adds 5.9 ms (the plug-in's own latency only), and a Preamp adds nothing, also after a VST has been used. Before these fixes, all three added 26 ms.
+- Fixed Voicemeeter processing stopping after an update until the next sign-in: the installer closed the Equalizer APO Voicemeeter client and did not start it again, so no filter or VST was applied to the Voicemeeter outputs. The installer now restarts it in your normal Windows account. Opened without arguments, `VoicemeeterClient.exe` uses the outputs you selected in Device Selector.
+- The installer now also starts the updated plug-in broker in your normal (non-administrator) Windows account right after installation, so new engine features work without signing out or restarting.
 - The Equalizer APO log records when Zero latency mode becomes active for a VST and why it switched to buffered mode.
-- [for developers - compilation] Adds hybrid-mode and adaptive-latency timeline tests and zero-latency real-time transport runs (with and without forced worker crashes) to the smoke suite.
+- Tip for Voicemeeter: its output buses have 8 channels, so a stereo plug-in runs as four instances. Add a **Channel** module set to `L R` (`Channel: L R`) above the plug-in to run a single instance and reduce CPU use and load time.
+- [for developers - compilation] Adds hybrid-mode and adaptive-latency timeline tests (including 64- and 128-sample blocks), a graph latency-release contract test, and zero-latency real-time transport runs (with and without forced worker crashes, and with 128-frame callbacks; `EqApoTransportSmoke --block N`) to the smoke suite.
 
 ## Changelog | 3.0.4 (21/11/2026)
 
@@ -191,7 +196,7 @@ Then the VST is partially or completely incompatible with APO's architecture and
 
 ### Zero Latency (Hybrid) Mode
 
-By default each VST runs in its own process and its audio is buffered by one 10 ms block (two if the VST falls behind). With **Zero latency (hybrid)** enabled in a VST module, the Windows audio callback waits for that VST instead, so no transport latency is added. The plug-in's own reported latency still applies.
+By default each VST runs in its own process and its audio is buffered by one block of at least 10 ms (two if the VST falls behind). With **Zero latency (hybrid)** enabled in a VST module, the audio callback (Windows, or the Voicemeeter client) waits for that VST instead, so no transport latency is added. The plug-in's own reported latency still applies.
 
 Pros:
 
@@ -201,9 +206,9 @@ Pros:
 
 Cons:
 
-- The Windows audio thread waits up to 5 ms per block for the VST. A missed deadline plays that block unprocessed, which can be heard as a click.
+- The audio thread waits for the VST in every block: up to 5 ms, or half a block for small buffers (about 1.3 ms at 128 samples). A missed deadline plays that block unprocessed, which can be heard as a click. Small buffers leave the VST very little time, so they are more sensitive to this.
 - Heavy VSTs, CPU spikes, opening or resizing the panel, or a loaded system can cause those misses.
-- Only works when Windows delivers audio in blocks of at least 10 ms (the normal shared-mode case). Otherwise buffered mode is used.
+- Needs blocks of a constant size. If the block size changes, buffered mode is used. After a fallback with buffers below 10 ms, buffered mode keeps about 10 ms of headroom (640 samples at 128).
 - Slightly higher CPU use, because the audio thread wakes the VST process for every block.
 
 Leave it off if you do not need low latency or if you hear clicks.

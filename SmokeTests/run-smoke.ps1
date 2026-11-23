@@ -115,6 +115,11 @@ if ($Suite -in @('Transport','All')) {
     Check-Exit 'Transport timeline'
     & (Join-Path $transport 'EqApoTransportSmoke.exe') $fixture (Join-Path $results 'transport-zero-latency.json') $SmokeSeconds --oracle '#7' 0.25 --zero-latency
     Check-Exit 'Transport zero-latency timeline'
+    # 128-frame callbacks, as Voicemeeter delivers them over ASIO.
+    & (Join-Path $transport 'EqApoTransportSmoke.exe') $fixture (Join-Path $results 'transport-block128.json') $SmokeSeconds --oracle '#7' 0.25 --block 128
+    Check-Exit 'Transport timeline (128-frame callbacks)'
+    & (Join-Path $transport 'EqApoTransportSmoke.exe') $fixture (Join-Path $results 'transport-zero-latency-block128.json') $SmokeSeconds --oracle '#7' 0.25 --zero-latency --block 128
+    Check-Exit 'Transport zero-latency timeline (128-frame callbacks)'
     if ($SmokeSeconds -ge 25) {
         & (Join-Path $transport 'EqApoTransportSmoke.exe') $fixture (Join-Path $results 'recovery.json') $SmokeSeconds --oracle '#7' 0.25 --faults
         Check-Exit 'Transport recovery'

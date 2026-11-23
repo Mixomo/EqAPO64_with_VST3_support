@@ -31,6 +31,7 @@ public:
     };
     static constexpr unsigned syncMissLimit=3;
     void prepare(unsigned channels,unsigned quantum,unsigned sampleRate) {
+        tenMsFrames=(std::max)(1u,(sampleRate+99)/100);
         channelCount=channels; blockFrames=quantum; maxPipeline=pipeline=2*quantum;
         previousPipeline=pipeline; callbackFrames=0; pipelineGeneration=0; steadyWet=false;
         capacity=maxPipeline+quantum+sampleRate*10+1;
@@ -47,7 +48,14 @@ public:
         transitionReady=false; syncOn=false; syncLeft=false; misses=0; firstMiss=0; totalMisses=0;
     }
     // Request hybrid mode before the first process() call.
-    void enableSync(SyncLink link) noexcept { sync=link; }
+    void enableSync(SyncLink link) noexcept {
+        sync=link;
+        // Hybrid blocks may be far below 10 ms (Voicemeeter over ASIO). Its
+        // buffered ceiling still gives the worker ~10 ms after a block; the
+        // 10 s history in capacity covers this extra quantum.
+        if(link.wait) pipeline=previousPipeline=maxPipeline=
+            (std::max)(2*blockFrames,blockFrames+(tenMsFrames+blockFrames-1)/blockFrames*blockFrames);
+    }
     unsigned transportLatency() const noexcept { return pipeline; }
     unsigned effectiveLatency() const noexcept { return pipeline+pluginDelay; }
     bool syncActive() const noexcept { return syncOn; }
@@ -96,7 +104,7 @@ public:
             // A ready worker that never signals slots predates hybrid mode
             // (an older broker still running): every wait would time out.
             const bool workerSignals=(*static_cast<volatile std::uint32_t*>(&shared->asyncTransport) & OUTPROC_TRANSPORT_SLOT_SIGNAL)!=0;
-            if(live && !workerSignals) leaveSync(2*blockFrames-callbackFrames);
+            if(live && !workerSignals) leaveSync(bufferedFallback());
             bool answered=false;
             if(slot && live && workerSignals && syncOn) {
                 sync.wait(sync.context,slot);
@@ -188,7 +196,12 @@ private:
         else ++misses;
         // Repeated misses mean this system or plug-in cannot meet the
         // in-callback deadline: keep sound stable with the buffered timeline.
-        if(misses>=syncMissLimit) leaveSync(2*blockFrames-callbackFrames);
+        if(misses>=syncMissLimit) leaveSync(bufferedFallback());
+    }
+    // Hybrid blocks of 10 ms or more fall back to the one-quantum timeline;
+    // smaller blocks need the ~10 ms ceiling to stay stable.
+    unsigned bufferedFallback() const noexcept {
+        return blockFrames>=tenMsFrames ? 2*blockFrames-callbackFrames : maxPipeline;
     }
     void leaveSync(unsigned next) noexcept {
         syncOn=false; syncLeft=true;
@@ -203,7 +216,7 @@ private:
     }
     SyncLink sync;
     unsigned channelCount=0,blockFrames=0,pipeline=0,previousPipeline=0,maxPipeline=0,capacity=0,accumulatedFrames=0;
-    unsigned callbackFrames=0,pipelineGeneration=0;
+    unsigned callbackFrames=0,pipelineGeneration=0,tenMsFrames=1;
     bool steadyWet=false,syncOn=false,syncLeft=false;
     unsigned misses=0,totalMisses=0;
     std::uint64_t firstMiss=0,missWindow=0;

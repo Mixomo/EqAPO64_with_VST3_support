@@ -177,7 +177,19 @@ void FilterConfiguration::process(unsigned frameCount)
     nativeLatency=0;
     for(unsigned c=0;c<outputChannelCount;++c)nativeLatency=(std::max)(nativeLatency,channelLatencies[c]);
     alignment.capture(allSamples,frameCount);
-    alignOutput((std::max)(targetLatency,nativeLatency),frameCount);
+    unsigned target=(std::max)(targetLatency,nativeLatency);
+    // After a transition, return to this graph's own latency with the same
+    // 10 ms crossfade. Without this, the extra delay of an earlier graph
+    // (for example a buffered plug-in) stays until the engine restarts.
+    if(releasePending && alignment.settled()) {target=nativeLatency;releasePending=false;}
+    alignOutput(target,frameCount);
+}
+
+void FilterConfiguration::releaseTransitionLatency() noexcept {
+    if(filterCount==0) {
+        // Empty graphs are bypassed, so their output is never delayed.
+        targetLatency=0;alignment.snap(0,channelLatencies.data());
+    } else if(targetLatency>nativeLatency) releasePending=true;
 }
 
 void FilterConfiguration::alignOutput(unsigned target,unsigned frames) {

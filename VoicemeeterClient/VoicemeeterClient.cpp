@@ -22,6 +22,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <shellapi.h>
+#include <tlhelp32.h>
 #include "../helpers/RegistryHelper.h"
 #include "VoicemeeterClient.h"
 #include "../VoicemeeterAPOInfo.h"
@@ -53,6 +54,33 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		for (int i = 0; i < argc; i++)
 			outputs.push_back(argv[i]);
 		LocalFree(argv);
+	}
+	else
+	{
+		// Opened without arguments (the installer asks the desktop shell to
+		// open this executable after an update, so it runs with the signed-in
+		// user's ordinary token): use the outputs of the startup shortcut that
+		// Device Selector created. Nothing is configured: nothing to do.
+		if (SUCCEEDED(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED)))
+		{
+			outputs = VoicemeeterAPOInfo::getStartupOutputs();
+			CoUninitialize();
+		}
+		if (outputs.empty())
+			return 0;
+		// Device Selector may already have started a client for these outputs.
+		HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+		if (snapshot != INVALID_HANDLE_VALUE)
+		{
+			bool otherClient = false;
+			PROCESSENTRY32W entry;
+			entry.dwSize = sizeof(entry);
+			for (BOOL more = Process32FirstW(snapshot, &entry); more && !otherClient; more = Process32NextW(snapshot, &entry))
+				otherClient = entry.th32ProcessID != GetCurrentProcessId() && _wcsicmp(entry.szExeFile, L"VoicemeeterClient.exe") == 0;
+			CloseHandle(snapshot);
+			if (otherClient)
+				return 0;
+		}
 	}
 
 	try

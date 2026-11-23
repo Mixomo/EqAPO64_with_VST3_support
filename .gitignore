@@ -35,6 +35,7 @@
 /VoicemeeterClient/x64/
 /Setup/lib64/
 /Setup/WideModern.exe
+/Setup/EqualizerAPO-*.exe
 /third_party/build/
 /Release checklist.txt
 

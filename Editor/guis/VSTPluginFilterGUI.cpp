@@ -100,16 +100,17 @@ VSTPluginFilterGUI::VSTPluginFilterGUI(std::shared_ptr<VSTPluginLibrary> library
                 "- Audio artifacts or delays when processing changes\n\n"
                 "Then the VST is partially or completely incompatible with APO's architecture and the technical limitations of the Windows audio engine.\n\n"
                 "Zero latency (hybrid) mode\n\n"
-                "By default each VST runs in its own process and its audio is buffered by one 10 ms block (two if the VST falls behind). "
-                "Zero latency mode waits for the VST inside the same Windows audio callback instead, so no transport latency is added.\n\n"
+                "By default each VST runs in its own process and its audio is buffered by one block of at least 10 ms (two if the VST falls behind). "
+                "Zero latency mode waits for the VST inside the same audio callback (Windows or the Voicemeeter client) instead, so no transport latency is added. "
+                "It also works with small buffers such as Voicemeeter over ASIO at 128 samples.\n\n"
                 "Pros:\n"
                 "- No added latency: useful for real-time monitoring, headphone correction and room correction\n"
                 "- Plug-in isolation, licensing in your Windows account and crash recovery are unchanged\n"
                 "- Falls back on its own: after 3 missed deadlines within 10 s the VST switches to buffered mode until the configuration is reloaded\n\n"
                 "Cons:\n"
-                "- The Windows audio thread waits up to 5 ms per block for the VST; a missed deadline plays that block unprocessed, which can be heard as a click\n"
+                "- The audio thread waits for the VST in every block (up to 5 ms, or half a block for small buffers: about 1.3 ms at 128 samples); a missed deadline plays that block unprocessed, which can be heard as a click\n"
                 "- Heavy VSTs, CPU spikes, opening or resizing the panel, or a loaded system can cause those misses\n"
-                "- Only works when Windows delivers audio in blocks of at least 10 ms (the normal shared-mode case); otherwise buffered mode is used\n"
+                "- Needs blocks of a constant size; otherwise buffered mode is used. Small buffers leave the VST very little time, so they are more sensitive to misses\n"
                 "- Slightly higher CPU use, because the audio thread wakes the VST process for every block\n\n"
                 "Leave it off if you do not need low latency or if you hear clicks.");
             QMessageBox dialog(QMessageBox::Information,tr("VST compatibility notes"),notes,QMessageBox::Ok,this);
@@ -117,7 +118,7 @@ VSTPluginFilterGUI::VSTPluginFilterGUI(std::shared_ptr<VSTPluginLibrary> library
         });
         grid->addWidget(diagnostics,4,0,1,5);
         zeroLatencyCheckBox=new QCheckBox(tr("Zero latency (hybrid)"),this);
-        zeroLatencyCheckBox->setToolTip(tr("Process this VST inside the Windows audio callback without the 10 ms buffer. "
+        zeroLatencyCheckBox->setToolTip(tr("Process this VST inside the audio callback without the 10 ms buffer. "
             "Falls back to buffered mode by itself if the VST misses its deadline. See the compatibility notes."));
         zeroLatencyCheckBox->setChecked(zeroLatency);
         connect(zeroLatencyCheckBox,&QCheckBox::toggled,this,[this](bool checked){

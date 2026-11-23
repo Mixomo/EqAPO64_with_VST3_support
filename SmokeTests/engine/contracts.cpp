@@ -119,7 +119,26 @@ static void graphTransitionTest() {
         position+=480;
     }
     check(transition>=4800,"graph transition must finish after warmup");
-    DeleteFileW(path.c_str());std::cout<<"PASS actual FilterConfiguration crossfade / 257-sample alignment / warmup\n";
+    // Back to a zero-latency graph: the transition aligns it to 257 samples,
+    // and once it is the only graph it must return to its own latency. An
+    // earlier buffered plug-in must not keep its delay until a restart.
+    auto lowGraph=makeGraph(0);transition=0;bool promoted=false;unsigned afterPromotion=0;
+    for(unsigned block=0;block<200;++block) {
+        for(unsigned f=0;f<480;++f)input[0][f]=input[1][f]=std::sin((position+f)*0.013);
+        if(!promoted) {
+            newGraph->read(ip,480);newGraph->process(480);lowGraph->read(ip,480);lowGraph->process(480);
+            transition=newGraph->doTransition(lowGraph.get(),480,transition,4800);newGraph->write(op,480);
+            check(std::abs(output[0][479]-std::sin((position+479-257)*0.013))<1e-12 || transition>0,"transition keeps the common latency");
+            if(transition>=4800){promoted=true;lowGraph->releaseTransitionLatency();}
+        } else {
+            lowGraph->read(ip,480);lowGraph->process(480);lowGraph->write(op,480);
+            // 10 ms release crossfade, then the graph's own zero latency.
+            if(++afterPromotion>3)for(unsigned f=0;f<480;++f)check(std::abs(output[0][f]-std::sin((position+f)*0.013))<1e-12,"promoted graph must release transition latency");
+        }
+        position+=480;
+    }
+    check(promoted && afterPromotion>100,"second graph transition must finish");
+    DeleteFileW(path.c_str());std::cout<<"PASS actual FilterConfiguration crossfade / 257-sample alignment / warmup / latency release\n";
 }
 static void builtinTransportTest() {
     for(unsigned mode=0;mode<2;++mode) {

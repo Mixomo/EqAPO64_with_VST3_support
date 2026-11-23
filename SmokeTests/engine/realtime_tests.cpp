@@ -214,8 +214,13 @@ static void testHybrid(unsigned rate,unsigned quantum,unsigned pluginLatency,boo
     }
     watch=false;
     check(allocations==allocationsBefore,"hybrid steady-state heap allocation");
-    if(irregular) check(client.transportLatency()==2*quantum,"irregular callbacks leave hybrid for two quanta");
-    else check(stalls>=EqApoAsync::AudioClient::syncMissLimit && client.transportLatency()==quantum,"fallback uses the one-quantum timeline");
+    // The buffered ceiling keeps ~10 ms of slack after a block, even for
+    // hybrid blocks far shorter than that (Voicemeeter over ASIO).
+    const unsigned tenMs=(rate+99)/100;
+    const unsigned ceiling=(std::max)(2*quantum,quantum+(tenMs+quantum-1)/quantum*quantum);
+    if(irregular) check(client.transportLatency()==ceiling,"irregular callbacks leave hybrid for the buffered ceiling");
+    else check(stalls>=EqApoAsync::AudioClient::syncMissLimit
+        && client.transportLatency()==(quantum>=tenMs ? quantum : ceiling),"fallback keeps ~10 ms of slack");
     _aligned_free(memory);
     std::cout<<"PASS hybrid rate="<<rate<<" quantum="<<quantum<<" plugin="<<pluginLatency<<(irregular?" irregular":"")<<" misses="<<client.syncMissCount()
         <<" waits="<<worker.waits<<" final="<<client.effectiveLatency()<<"\n";
@@ -242,11 +247,14 @@ int main() {
         testHybridOldWorker();
         for(unsigned rate:{44100u,48000u,96000u}) for(unsigned latency:{0u,257u}) testHybrid(rate,(rate+99)/100,latency,false);
         testHybrid(48000,480,0,true);
+        for(unsigned latency:{0u,257u}) {testHybrid(48000,128,latency,false);testHybrid(44100,64,latency,false);}
+        testHybrid(48000,128,0,true);
         for(unsigned rate:{44100u,48000u,96000u}) {
             const unsigned q=(rate+99)/100;
             testAdaptivePipeline(rate,q,q);
         }
         testAdaptivePipeline(48000,480,240);testAdaptivePipeline(48000,480,120);
+        testAdaptivePipeline(48000,512,128);testAdaptivePipeline(44100,448,64);
         for(unsigned rate:{44100u,48000u,96000u}) for(unsigned channels:{1u,2u,6u,8u})
             for(unsigned quantum:{32u,64u,128u,256u,480u,512u,960u}) for(unsigned latency:{0u,257u}) testTimeline(channels,rate,quantum,latency);
         std::cout<<"PASS all realtime timeline contracts\n"; return 0;
