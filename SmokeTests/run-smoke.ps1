@@ -113,9 +113,13 @@ if ($Suite -in @('Core','All')) {
 if ($Suite -in @('Transport','All')) {
     & (Join-Path $transport 'EqApoTransportSmoke.exe') $fixture (Join-Path $results 'transport.json') $SmokeSeconds --oracle '#7' 0.25
     Check-Exit 'Transport timeline'
+    & (Join-Path $transport 'EqApoTransportSmoke.exe') $fixture (Join-Path $results 'transport-zero-latency.json') $SmokeSeconds --oracle '#7' 0.25 --zero-latency
+    Check-Exit 'Transport zero-latency timeline'
     if ($SmokeSeconds -ge 25) {
         & (Join-Path $transport 'EqApoTransportSmoke.exe') $fixture (Join-Path $results 'recovery.json') $SmokeSeconds --oracle '#7' 0.25 --faults
         Check-Exit 'Transport recovery'
+        & (Join-Path $transport 'EqApoTransportSmoke.exe') $fixture (Join-Path $results 'recovery-zero-latency.json') $SmokeSeconds --oracle '#7' 0.25 --faults --zero-latency
+        Check-Exit 'Transport zero-latency recovery'
     }
 }
 if ($MatrixPath) {

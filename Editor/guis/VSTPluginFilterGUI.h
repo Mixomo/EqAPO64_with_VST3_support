@@ -40,7 +40,7 @@ class VSTPluginFilterGUI : public IFilterGUI
 public:
     // Bypass affects audio, not the ability to hide/show/close the retained panel.
     void setModuleBypassed(bool) override {setEnabled(true);}
-	explicit VSTPluginFilterGUI(std::shared_ptr<VSTPluginLibrary> library, const std::wstring& chunkData, const std::unordered_map<std::wstring, float>& paramMap, const QString& hostId = QString(), int vst3ClassIndex = 0, const std::wstring& classUID = L"");
+	explicit VSTPluginFilterGUI(std::shared_ptr<VSTPluginLibrary> library, const std::wstring& chunkData, const std::unordered_map<std::wstring, float>& paramMap, const QString& hostId = QString(), int vst3ClassIndex = 0, const std::wstring& classUID = L"", bool zeroLatency = false);
 	~VSTPluginFilterGUI();
 
 	void store(QString& command, QString& parameters) override;
@@ -79,6 +79,9 @@ private:
 	std::wstring chunkData;
 	std::unordered_map<std::wstring, float> paramMap;
 	QString hostId;
+    // Hybrid zero-latency transport for this plug-in (ZeroLatency 1).
+    bool zeroLatency=false;
+    class QCheckBox* zeroLatencyCheckBox=nullptr;
 	bool outProcGuiRunning = false;
     bool nativeDspPanel=false,nativeViewOpening=false;
     bool nativeClosePending=false;

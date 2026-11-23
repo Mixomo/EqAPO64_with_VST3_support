@@ -1089,6 +1089,12 @@ static int runHostMain(int argc, wchar_t** argv)
 {
 	SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX);
+    // Opened without arguments (the installer asks the desktop shell to open
+    // this executable, so it runs with the signed-in user's ordinary token):
+    // start the user broker. A second broker exits on its single-instance mutex.
+    static wchar_t brokerFlag[]=L"--user-broker";
+    wchar_t* brokerArguments[]={argc>0 && argv ? argv[0] : brokerFlag,brokerFlag,nullptr};
+    if(argc<=1){argc=2;argv=brokerArguments;}
 
     if(hasFlag(argc,argv,L"--broker-stop") || hasFlag(argc,argv,L"--broker-status")){
         const auto user=EqApoControl::canonicalSid(EqApoControl::currentUserSid());if(user.empty())return 17;
@@ -1300,7 +1306,16 @@ static int runHostMain(int argc, wchar_t** argv)
                 if(!processPanelSilence())header->lastError.store(3);
             } else if(header->dspType!=OUTPROC_AUDIO_DSP_VST && !header->asyncTransport) {
                 if(header->requestSeq!=header->responseSeq) {processBlock(header,dspState);SetEvent(response);}
-            } else processAsyncSlots(header,dspState);
+            } else {
+                // Advertise before servicing: this worker is ready only after a
+                // serviced slot, so a ready worker without the bit is an older one.
+                if(!header->analysisOnly && !(header->asyncTransport & OUTPROC_TRANSPORT_SLOT_SIGNAL))
+                    header->asyncTransport|=OUTPROC_TRANSPORT_SLOT_SIGNAL;
+                processAsyncSlots(header,dspState);
+                // Wakes a zero-latency (hybrid) client waiting inside its
+                // audio callback; buffered clients never wait on this event.
+                if(!header->analysisOnly)SetEvent(response);
+            }
             if(header->analysisOnly && header->analysisComplete.load(std::memory_order_acquire)!=analysisBefore)SetEvent(response);
             owner.store(0,std::memory_order_release);
         }

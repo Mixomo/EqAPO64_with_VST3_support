@@ -37,6 +37,7 @@
 #include <QTextStream>
 #include <QTimer>
 #include <QPushButton>
+#include <QCheckBox>
 #include <QUuid>
 #include <cwchar>
 
@@ -73,8 +74,8 @@ static void appendOutProcDebugLog(const QString& message)
 	}
 }
 
-VSTPluginFilterGUI::VSTPluginFilterGUI(std::shared_ptr<VSTPluginLibrary> library, const std::wstring& chunkData, const std::unordered_map<std::wstring, float>& paramMap, const QString& hostId, int vst3ClassIndex,const std::wstring& classUID)
-	: ui(new Ui::VSTPluginFilterGUI), library(library), chunkData(chunkData), paramMap(paramMap), hostId(hostId), vst3ClassIndex(vst3ClassIndex),selectedClassUID(classUID)
+VSTPluginFilterGUI::VSTPluginFilterGUI(std::shared_ptr<VSTPluginLibrary> library, const std::wstring& chunkData, const std::unordered_map<std::wstring, float>& paramMap, const QString& hostId, int vst3ClassIndex,const std::wstring& classUID,bool zeroLatency)
+	: ui(new Ui::VSTPluginFilterGUI), library(library), chunkData(chunkData), paramMap(paramMap), hostId(hostId), zeroLatency(zeroLatency), vst3ClassIndex(vst3ClassIndex),selectedClassUID(classUID)
 {
 	ui->setupUi(this);
     ui->pathLineEdit->setPathMode();
@@ -97,11 +98,34 @@ VSTPluginFilterGUI::VSTPluginFilterGUI(std::shared_ptr<VSTPluginLibrary> library
                 "- Audio changes you've made in the VST GUI aren't applied\n"
                 "- The GUI doesn't open when you click the button\n"
                 "- Audio artifacts or delays when processing changes\n\n"
-                "Then the VST is partially or completely incompatible with APO's architecture and the technical limitations of the Windows audio engine.");
+                "Then the VST is partially or completely incompatible with APO's architecture and the technical limitations of the Windows audio engine.\n\n"
+                "Zero latency (hybrid) mode\n\n"
+                "By default each VST runs in its own process and its audio is buffered by one 10 ms block (two if the VST falls behind). "
+                "Zero latency mode waits for the VST inside the same Windows audio callback instead, so no transport latency is added.\n\n"
+                "Pros:\n"
+                "- No added latency: useful for real-time monitoring, headphone correction and room correction\n"
+                "- Plug-in isolation, licensing in your Windows account and crash recovery are unchanged\n"
+                "- Falls back on its own: after 3 missed deadlines within 10 s the VST switches to buffered mode until the configuration is reloaded\n\n"
+                "Cons:\n"
+                "- The Windows audio thread waits up to 5 ms per block for the VST; a missed deadline plays that block unprocessed, which can be heard as a click\n"
+                "- Heavy VSTs, CPU spikes, opening or resizing the panel, or a loaded system can cause those misses\n"
+                "- Only works when Windows delivers audio in blocks of at least 10 ms (the normal shared-mode case); otherwise buffered mode is used\n"
+                "- Slightly higher CPU use, because the audio thread wakes the VST process for every block\n\n"
+                "Leave it off if you do not need low latency or if you hear clicks.");
             QMessageBox dialog(QMessageBox::Information,tr("VST compatibility notes"),notes,QMessageBox::Ok,this);
             dialog.exec();
         });
         grid->addWidget(diagnostics,4,0,1,5);
+        zeroLatencyCheckBox=new QCheckBox(tr("Zero latency (hybrid)"),this);
+        zeroLatencyCheckBox->setToolTip(tr("Process this VST inside the Windows audio callback without the 10 ms buffer. "
+            "Falls back to buffered mode by itself if the VST misses its deadline. See the compatibility notes."));
+        zeroLatencyCheckBox->setChecked(zeroLatency);
+        connect(zeroLatencyCheckBox,&QCheckBox::toggled,this,[this](bool checked){
+            if(checked==this->zeroLatency)return;
+            this->zeroLatency=checked;
+            emit updateModel();
+        });
+        grid->addWidget(zeroLatencyCheckBox,5,0,1,5);
 	}
 	ui->warningTextEdit->hide();
 	GUIHelper::applyWarningBoxPalette(ui->warningTextEdit);
@@ -152,6 +176,7 @@ void VSTPluginFilterGUI::store(QString& command, QString& parameters)
         const auto user=EqApoControl::currentUserSid();
         if(!user.empty())parameters += " GuiUserSID " + QString::fromStdWString(user);
     }
+    if(zeroLatency)parameters += " ZeroLatency 1";
 	if (chunkData != L"")
 	{
 		parameters += " ChunkData \"" + QString::fromStdWString(chunkData) + "\"";

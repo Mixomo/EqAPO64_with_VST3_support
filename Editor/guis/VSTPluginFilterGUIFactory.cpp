@@ -66,6 +66,7 @@ IFilterGUI* VSTPluginFilterGUIFactory::createFilterGUI(QString& command, QString
 			int vst3ClassIndex = 0;
             std::wstring classUID;
 			std::unordered_map<std::wstring, float> paramMap;
+            bool zeroLatency=false;
 			std::vector<std::wstring> parts = StringHelper::splitQuoted(parameters.toStdWString(), ' ');
 			for (unsigned i = 0; i + 1 < parts.size(); i += 2)
 			{
@@ -79,6 +80,7 @@ IFilterGUI* VSTPluginFilterGUIFactory::createFilterGUI(QString& command, QString
 					hostId = QString::fromStdWString(value);
                 else if(key==L"GuiUserSID") {} // User identity is refreshed when storing this interactive row.
 				else if(key==L"ClassUID") classUID=value;
+                else if(key==L"ZeroLatency") zeroLatency=_wtoi(value.c_str())!=0;
                 else if (key == L"ClassIndex")
 					vst3ClassIndex = _wtoi(value.c_str());
 				else if (key == L"Engine")
@@ -93,7 +95,7 @@ IFilterGUI* VSTPluginFilterGUIFactory::createFilterGUI(QString& command, QString
 			}
 			auto lib=VSTPluginLibrary::getInstance(libPath);
             
-            result = new VSTPluginFilterGUI(VSTPluginLibrary::getInstance(libPath), chunkData, paramMap, hostId, vst3ClassIndex,classUID);
+            result = new VSTPluginFilterGUI(VSTPluginLibrary::getInstance(libPath), chunkData, paramMap, hostId, vst3ClassIndex,classUID,zeroLatency);
 		}
 	}
 

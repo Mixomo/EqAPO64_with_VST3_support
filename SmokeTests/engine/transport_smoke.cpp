@@ -9,6 +9,7 @@
 #include <vector>
 #include <algorithm>
 #include <stdexcept>
+#include <iterator>
 #include <tlhelp32.h>
 #include <mmsystem.h>
 #include <avrt.h>
@@ -19,11 +20,12 @@ int wmain(int argc,wchar_t** argv) {
     const std::wstring path=argv[1], report=argv[2];
     const unsigned duration=std::stoul(argv[3]);
     if(duration<1 || duration>60) {std::cerr<<"Smoke duration must be 1..60 seconds\n";return 2;}
-    bool analyzer=false,oracle=false,faults=false;std::wstring gainId;double oracleGain=1;
+    bool analyzer=false,oracle=false,faults=false,hybrid=false;std::wstring gainId;double oracleGain=1;
     for(int i=4;i<argc;++i) {
         const std::wstring option=argv[i];
         if(option==L"--analysis")analyzer=true;
         else if(option==L"--faults")faults=true;
+        else if(option==L"--zero-latency")hybrid=true;
         else if(option==L"--oracle" && i+2<argc) {oracle=true;gainId=argv[++i];oracleGain=std::stod(argv[++i]);}
     }
     timeBeginPeriod(1);
@@ -46,6 +48,7 @@ int wmain(int argc,wchar_t** argv) {
         const unsigned expectedLatency=pluginLatency+(analyzer?0:2*quantum);
         OutProcVSTPluginFilter filter(path,state,parameters,L"",analyzer,0,
             library->isVST3()?library->getVST3ClassUID(0):L"");
+        filter.setHybridLatency(hybrid);
         filter.initialize(float(rate),quantum,{L"L",L"R"});
         // Startup is outside the measured processing interval.
         Sleep(1000);
@@ -107,12 +110,39 @@ int wmain(int argc,wchar_t** argv) {
         if(!nonzero) throw std::runtime_error("NO_AUDIO");
         if(oracle && (!oracleChecks || oracleFailures)) {std::cerr<<"oracle_checks="<<oracleChecks<<" failures="<<oracleFailures<<" latency="<<filter.getLatencySamples()<<" max_delta="<<maxDiscontinuity<<"\n";throw std::runtime_error("WET_TIMELINE_ORACLE");}
         if(faults && kills!=4)throw std::runtime_error("FAULT_INJECTION_COUNT");
+        // The worker is launched by the signed-in user's broker, which can be
+        // an installed older release. Its advertised capability, not its
+        // build, decides which contract applies.
+        std::wstring workerImage;
+        if(const auto diagnostic=filter.getDiagnostics();diagnostic.hostPid) {
+            if(HANDLE worker=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,FALSE,diagnostic.hostPid)) {
+                wchar_t image[32768]{};DWORD length=32768;
+                if(QueryFullProcessImageNameW(worker,0,image,&length))workerImage=image;
+                CloseHandle(worker);
+            }
+        }
+        const bool builtWorker=filter.workerSupportsHybrid();
+        if(hybrid && !faults && builtWorker) {
+            // A healthy current worker must keep the in-callback deadline for
+            // the whole run on this harness.
+            if(!filter.isHybridActive())throw std::runtime_error("HYBRID_FELL_BACK");
+            if(filter.getLatencySamples()!=pluginLatency)throw std::runtime_error("HYBRID_LATENCY");
+        } else if(hybrid && !faults) {
+            // Older broker: its worker never signals slots, so hybrid must
+            // fall back to the one-quantum buffer (oracle above: no errors).
+            if(filter.isHybridActive() || !filter.hasHybridFallenBack())throw std::runtime_error("HYBRID_OLD_WORKER_NOT_BUFFERED");
+            if(filter.getLatencySamples()!=pluginLatency+quantum)throw std::runtime_error("HYBRID_OLD_WORKER_LATENCY");
+            std::wcerr<<L"NOTE zero-latency run served by an older worker ("<<workerImage<<L"); verified buffered fallback only\n";
+        }
         const double p99=durations[size_t((durations.size()-1)*0.99)],max=durations.back();
         result<<"{\"status\":\"PASS\",\"mode\":\""<<(analyzer?"analysis_clone":"inherited_outproc")
             <<"\",\"duration_seconds\":"<<std::chrono::duration<double>(std::chrono::steady_clock::now()-started).count()
             <<",\"callbacks\":"<<durations.size()<<",\"frames\":"<<position<<",\"declared_latency_samples\":"<<(analyzer ? pluginLatency : filter.getLatencySamples())
             <<",\"callback_p99_us\":"<<p99<<",\"callback_max_us\":"<<max
             <<",\"max_adjacent_sample_delta\":"<<maxDiscontinuity<<",\"oracle_samples\":"<<oracleChecks<<",\"oracle_failures\":"<<oracleFailures<<",\"forced_host_crashes\":"<<kills
+            <<",\"zero_latency_requested\":"<<(hybrid?"true":"false")<<",\"zero_latency_active\":"<<(filter.isHybridActive()?"true":"false")
+            <<",\"zero_latency_fell_back\":"<<(filter.hasHybridFallenBack()?"true":"false")
+            <<",\"worker_supports_zero_latency\":"<<(builtWorker?"true":"false")
             <<",\"limits\":[\"The optional oracle covers the declared linear gain fixture only; does not certify audiodg, arbitrary-plugin wet/dry identity, graph transitions or deadline compliance under system load\"]}\n";
         if(pacingTimer)CloseHandle(pacingTimer);
         if(mmcss)AvRevertMmThreadCharacteristics(mmcss);

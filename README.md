@@ -41,6 +41,14 @@ This branch is a rewrite of the VST engine from the **2.0.4 experimental branch*
 - Reproducible installer build using local dependencies under `third_party/`.
 - NSIS-based safe installer packaging with multiple optional components for saving disk space and customize the installation.
 
+## Changelog | 3.0.5 (22/11/2026)
+
+- Lower VST latency (#1): each VST now adds one 10 ms audio block instead of two (about 10 ms less at 48 kHz). If the plug-in process falls behind, or Windows delivers audio in irregular block sizes, that VST switches back to two blocks automatically.
+- New optional **Zero latency (hybrid)** mode per VST module. The Windows audio callback waits for the plug-in (up to 5 ms per block), so no transport latency is added, for real-time monitoring and headphone or room correction. After 3 missed deadlines within 10 s the module switches to buffered mode until the configuration is reloaded. If an older plug-in broker is still running, the module uses buffered mode instead. It is saved as `ZeroLatency 1` on the `VSTPlugin:` line; older versions ignore it. See the pros and cons in [Zero Latency (Hybrid) Mode](#zero-latency-hybrid-mode).
+- The installer now starts the updated plug-in broker in your normal (non-administrator) Windows account right after installation, so new engine features work without signing out or restarting.
+- The Equalizer APO log records when Zero latency mode becomes active for a VST and why it switched to buffered mode.
+- [for developers - compilation] Adds hybrid-mode and adaptive-latency timeline tests and zero-latency real-time transport runs (with and without forced worker crashes) to the smoke suite.
+
 ## Changelog | 3.0.4 (21/11/2026)
 
 - Fixed VST3 (and VST2) settings reverting to an older state after reopening Configuration Editor or restarting Windows. The newest panel state is now saved before modules are rebuilt (moving, adding, cloning or editing other rows, changing device), after hiding a panel, and when Windows logs off or shuts down.
@@ -181,6 +189,25 @@ If you experience:
 
 Then the VST is partially or completely incompatible with APO's architecture and the technical limitations of the Windows audio engine.
 
+### Zero Latency (Hybrid) Mode
+
+By default each VST runs in its own process and its audio is buffered by one 10 ms block (two if the VST falls behind). With **Zero latency (hybrid)** enabled in a VST module, the Windows audio callback waits for that VST instead, so no transport latency is added. The plug-in's own reported latency still applies.
+
+Pros:
+
+- No added latency, useful for real-time monitoring, headphone correction and room correction.
+- Plug-in isolation, licensing in your Windows account and crash recovery work as in the default mode.
+- Falls back on its own: after 3 missed deadlines within 10 s the VST switches to buffered mode until the configuration is reloaded.
+
+Cons:
+
+- The Windows audio thread waits up to 5 ms per block for the VST. A missed deadline plays that block unprocessed, which can be heard as a click.
+- Heavy VSTs, CPU spikes, opening or resizing the panel, or a loaded system can cause those misses.
+- Only works when Windows delivers audio in blocks of at least 10 ms (the normal shared-mode case). Otherwise buffered mode is used.
+- Slightly higher CPU use, because the audio thread wakes the VST process for every block.
+
+Leave it off if you do not need low latency or if you hear clicks.
+
 ## About VST3 Plug-ins
 
 VST3 effects may be single files or bundles. A Windows bundle commonly contains its binary at:
@@ -269,7 +296,7 @@ The script performs the complete packaging flow:
 - Builds Qt-based applications such as Configuration Editor and Device Selector.
 - Deploys the required Qt runtime files with `windeployqt`.
 - Stages runtime files under `Setup/lib64`.
-- Creates `EqualizerAPO-x64-1.4.2-with-VST3-support-V3.0.4.exe` under `output/installer/`.
+- Creates `EqualizerAPO-x64-1.4.2-with-VST3-support-V3.0.5.exe` under `output/installer/`.
 
 Build logs are saved under `output/build/`.
 

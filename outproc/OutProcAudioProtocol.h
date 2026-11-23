@@ -37,6 +37,8 @@ struct alignas(64) OutProcAudioSlot {
 };
 static_assert(std::atomic<std::uint32_t>::is_always_lock_free,"IPC requires lock-free atomics");
 static_assert(std::atomic<std::uint64_t>::is_always_lock_free,"IPC requires x64 atomics");
+constexpr std::uint32_t OUTPROC_TRANSPORT_SLOT_SIGNAL=2;
+
 struct alignas(64) OutProcAudioHeader
 {
 	std::uint32_t magic;
@@ -61,6 +63,9 @@ struct alignas(64) OutProcAudioHeader
     std::atomic<std::uint32_t> pluginLatency{0},ready{0},lastError{0};
     std::atomic<std::uint64_t> analysisRequest{0},analysisComplete{0},stateGeneration{0};
     std::uint32_t analysisOnly=0;
+    // Bit 0: buffered slot transport (set by the client). Bit 1: the worker
+    // signals the response event after servicing slots, which hybrid
+    // zero-latency clients require (older workers never set it).
     std::uint32_t asyncTransport=1;
     std::atomic<std::uint64_t> sessionEpoch{0};
     std::atomic<std::uint64_t> analysisCpu100ns{0};

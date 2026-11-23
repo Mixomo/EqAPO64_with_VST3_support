@@ -134,7 +134,7 @@ static void builtinTransportTest() {
             for(unsigned f=0;f<480;++f) {input[0][f]=input[1][f]=0.1*std::sin((position+f)*0.013);expectedHistory[position+f]=mode==0?0.5*input[0][f]:reference.process(input[0][f]);}
             filter->process(op,ip,480);
             if(block>=10)for(unsigned f=0;f<480;++f) {
-                const double expected=expectedHistory[position+f-960];
+                const double expected=expectedHistory[position+f-filter->getLatencySamples()];
                 maxError=(std::max)(maxError,std::abs(output[0][f]-expected));
                 ++checks;if(std::abs(output[0][f]-expected)>1e-9 || !std::isfinite(output[1][f]))++failures;
             }

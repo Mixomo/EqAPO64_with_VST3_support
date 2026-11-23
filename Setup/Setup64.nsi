@@ -9,7 +9,7 @@
 
 ; Release number of this VST3 fork (shown in the installer file name).
 !ifndef FORK_VERSION
-!define FORK_VERSION "3.0.4"
+!define FORK_VERSION "3.0.5"
 !endif
 
 !ifdef OUTPUT_FILE

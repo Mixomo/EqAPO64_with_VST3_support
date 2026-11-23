@@ -38,6 +38,7 @@ vector<IFilter*> OutProcVSTPluginFilterFactory::createFilter(const wstring& conf
 		int vst3ClassIndex = 0;
         wstring classUID;
 		unordered_map<wstring, float> paramMap;
+        bool zeroLatency=false;
 		vector<wstring> parts = StringHelper::splitQuoted(parameters, ' ');
 		for (unsigned i = 0; i + 1 < parts.size(); i += 2)
 		{
@@ -66,6 +67,7 @@ vector<IFilter*> OutProcVSTPluginFilterFactory::createFilter(const wstring& conf
 			else if (key == L"HostId")
 				hostId = value;
             else if(key==L"GuiUserSID")guiUserSid=value;
+            else if(key==L"ZeroLatency")zeroLatency=_wtoi(value.c_str())!=0;
 			else if(key==L"ClassUID") classUID=value;
             else if (key == L"ClassIndex")
 				vst3ClassIndex = _wtoi(value.c_str());
@@ -103,6 +105,7 @@ vector<IFilter*> OutProcVSTPluginFilterFactory::createFilter(const wstring& conf
                 +L":"+std::to_wstring(vst3ClassIndex)+L":"+std::to_wstring(classUID.size())+L":"+classUID
                 +L":"+std::to_wstring(guiUserSid.size())+L":"+guiUserSid;
 			filter = new(mem) OutProcVSTPluginFilter(libPath, chunkData, paramMap, hostId, engine != nullptr && engine->isAnalysisMode(), vst3ClassIndex, classUID,guiUserSid,engine?engine->getBrokerInstanceId(hostId,identitySignature):L"");
+            filter->setHybridLatency(zeroLatency);
 		}
 	}
 

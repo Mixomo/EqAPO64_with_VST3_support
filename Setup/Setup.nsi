@@ -581,7 +581,20 @@ Section "-Install"
   IfSilent devicesReady 0
   ExecWait '"$INSTDIR\DeviceSelector.exe" /i' $0
   devicesReady:
-  
+
+  ; Start the new plug-in broker now, so the updated engine works without
+  ; signing out. It must run with the signed-in user's ordinary token: asking
+  ; explorer.exe to open the executable hands it to the running desktop shell
+  ; (opened without arguments, the host starts as the user broker), whereas
+  ; launching it from this elevated installer would give plug-ins an
+  ; administrator token. Skipped for silent installs and when no desktop shell
+  ; is running; the Run entry above still starts it at the next sign-in.
+  IfSilent brokerStarted 0
+  FindWindow $1 "Shell_TrayWnd"
+  StrCmp $1 0 brokerStarted
+  Exec '"$WINDIR\explorer.exe" "$INSTDIR\EqApoOutProcHost.exe"'
+  brokerStarted:
+
 
   ;Hopefully, the renamed files can be deleted without reboot after the Device Selector has restarted the audio service
   Delete /REBOOTOK "$INSTDIR\*.old"

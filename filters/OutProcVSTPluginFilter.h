@@ -56,7 +56,19 @@ public:
     // Non-RT snapshot: does not race supervisor mapping replacement.
     Diagnostics getDiagnostics() noexcept;
     bool publishParameter(std::uint64_t generation,std::uint32_t id,double value,int offset=0) noexcept;
+    // Hybrid zero-latency mode; set by the factory before initialize().
+    void setHybridLatency(bool enabled) noexcept {hybridLatency=enabled;}
+    bool getHybridLatency() const noexcept {return hybridLatency;}
+    bool isHybridActive() const noexcept {return audioClient.syncActive();}
+    bool hasHybridFallenBack() const noexcept {return audioClient.syncFellBack();}
+    // Non-RT: the current worker advertises in-callback slot signaling.
+    bool workerSupportsHybrid() const noexcept {return sharedHeader && (sharedHeader->asyncTransport & OUTPROC_TRANSPORT_SLOT_SIGNAL)!=0;}
 private:
+    static void syncWait(void* context,OutProcAudioSlot* slot) noexcept;
+    bool hybridLatency=false,hybridActiveLogged=false,hybridFallbackLogged=false;
+    HANDLE syncTimer=nullptr;
+    LONGLONG syncBudget100ns=0;
+    DWORD syncBudgetMs=1;
 	void closeHost();
     void processAnalysis(double** output,double** input,unsigned frames);
 	bool startHost();

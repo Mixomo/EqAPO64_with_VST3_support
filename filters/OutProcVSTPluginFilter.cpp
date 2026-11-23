@@ -67,6 +67,7 @@ OutProcVSTPluginFilter::~OutProcVSTPluginFilter()
 	closeHost();
 	if (!configFilePath.empty())
 		DeleteFileW(configFilePath.c_str());
+    if(syncTimer)CloseHandle(syncTimer);
 }
 
 vector<wstring> OutProcVSTPluginFilter::initialize(float sampleRate, unsigned maxFrameCount, vector<wstring> channelNames)
@@ -109,6 +110,17 @@ vector<wstring> OutProcVSTPluginFilter::initialize(float sampleRate, unsigned ma
 	}
 
     audioClient.prepare(channelCount,maxFrameCount,static_cast<unsigned>(sampleRate));
+    if(hybridLatency && !analysisMode) {
+        // In-callback budget: half a quantum, at most 5 ms. A high-resolution
+        // timer bounds the wait; the ordinary timer is only a fallback.
+        const double budgetMs=(std::min)(5.0,0.5*1000.0*maxFrameCount/sampleRate);
+        syncBudget100ns=static_cast<LONGLONG>(budgetMs*10000.0);
+        syncBudgetMs=static_cast<DWORD>(std::ceil(budgetMs))+1;
+        if(!syncTimer)syncTimer=CreateWaitableTimerExW(nullptr,nullptr,0x2/*HIGH_RESOLUTION*/,TIMER_ALL_ACCESS);
+        if(!syncTimer)syncTimer=CreateWaitableTimerW(nullptr,FALSE,nullptr);
+        if(syncTimer)audioClient.enableSync({this,&OutProcVSTPluginFilter::syncWait});
+        else LogF(L"OutProcVSTPlugin: zero-latency timer unavailable, using buffered mode");
+    }
     // Interactive audio always uses the signed-in user's existing vendor profile.
     // Analysis clones already run in the requesting user's process context.
     brokerMode=!analysisMode;
@@ -132,6 +144,23 @@ vector<wstring> OutProcVSTPluginFilter::initialize(float sampleRate, unsigned ma
 }
 
 #pragma AVRT_CODE_BEGIN
+void OutProcVSTPluginFilter::syncWait(void* context,OutProcAudioSlot* slot) noexcept
+{
+    auto* self=static_cast<OutProcVSTPluginFilter*>(context);
+    if(!self->requestEvent || !self->responseEvent || !self->syncTimer)return;
+    SetEvent(self->requestEvent);
+    LARGE_INTEGER due;due.QuadPart=-self->syncBudget100ns;
+    if(!SetWaitableTimer(self->syncTimer,&due,0,nullptr,nullptr,FALSE))return;
+    HANDLE handles[]={self->responseEvent,self->syncTimer};
+    // The worker signals after every serviced request; a stale signal only
+    // costs one more state check. The timer, not this loop, ends the budget.
+    while(slot->state.load(std::memory_order_acquire)!=SLOT_OUTPUT) {
+        const DWORD wake=WaitForMultipleObjects(2,handles,FALSE,self->syncBudgetMs);
+        if(wake!=WAIT_OBJECT_0)break;
+    }
+    CancelWaitableTimer(self->syncTimer);
+}
+
 void OutProcVSTPluginFilter::process(double** output, double** input, unsigned frameCount)
 {
     if(analysisMode) { processAnalysis(output,input,frameCount); return; }
@@ -567,6 +596,19 @@ void OutProcVSTPluginFilter::supervise() {
     std::uint64_t lastHeartbeat=0; unsigned stalled=0;
     while(!stopping.load(std::memory_order_acquire)) {
         Sleep(50); // Control thread, never reachable from the APO callback.
+        if(hybridLatency) {
+            // Diagnostic only: reads audio-owned flags without synchronizing.
+            if(!hybridActiveLogged && audioClient.syncActive() && audioClient.readyForTransition()) {
+                hybridActiveLogged=true;
+                LogF(L"OutProcVSTPlugin: zero latency (hybrid) active for %s (%u frames per block)",vstConfig.libraryPath.c_str(),maxFrameCount);
+            }
+            if(!hybridFallbackLogged && audioClient.syncFellBack()) {
+                hybridFallbackLogged=true;
+                const unsigned misses=audioClient.syncMissCount();
+                LogF(L"OutProcVSTPlugin: zero latency (hybrid) switched to buffered mode for %s: %s",vstConfig.libraryPath.c_str(),
+                    misses ? L"repeated missed deadlines" : L"audio blocks are irregular or shorter than 10 ms, or the plug-in worker predates hybrid mode");
+            }
+        }
         // Native GUI changes are already audible. Checkpoint them for worker
         // recovery without rebuilding the graph or touching the RT callback.
         if(controlEndpoint) {
